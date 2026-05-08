@@ -1,13 +1,14 @@
 # APM audit — Drift + policy check
 #
 # What it gates:
-#   1. `apm install --target copilot --frozen` — re-resolves the
-#      manifest against `apm.lock.yaml` *without* mutating the
-#      lockfile. Fails if the working tree disagrees with the lock.
+#   1. `apm install --target copilot` — populates the local APM cache
+#      in the fresh runner environment so audit can replay the locked
+#      install without refetching dependencies.
 #   2. `apm audit --ci --policy ./apm-policy.yml` — enforces the
 #      governance policy (allow-list, MCP transports, signature
-#      checks, unmanaged-files action). SARIF is uploaded to the
-#      Security tab so violations show alongside CodeQL.
+#      checks, unmanaged-files action) and performs drift detection by
+#      default. SARIF is uploaded to the Security tab so violations
+#      show alongside CodeQL.
 #
 # What it explicitly does NOT do:
 #   * It must NOT run `apm compile -t copilot`. The hand-authored
@@ -59,28 +60,16 @@ jobs:
 
       - name: Verify APM version
         run: |
-          installed="$(apm --version | awk '{print $NF}')"
+          installed="$(apm --version | awk '{print $(NF-1)}')"
           if [ "$installed" != "${{ env.APM_VERSION }}" ]; then
             echo "::warning::Installed APM version $installed != pinned ${{ env.APM_VERSION }}"
           fi
           apm --version
 
-      # `apm install --frozen` re-resolves against apm.lock.yaml
-      # without mutating it, then re-installs managed files. If a
-      # contributor edited apm.yml without re-running `apm install`
-      # locally, the lockfile drift will fail this step.
-      - name: apm install (frozen)
-        run: apm install --target copilot --frozen
-
-      # Fail the PR if the install changed anything tracked. Files
-      # APM manages should be byte-identical to the lockfile resolution.
-      - name: Detect APM-managed file drift
-        run: |
-          if ! git diff --quiet --exit-code -- '.github/' '.agents/' '.vscode/' 'apm.lock.yaml'; then
-            echo "::error::APM-managed files differ from apm.lock.yaml resolution. Run \`apm install\` locally and commit the result."
-            git --no-pager diff -- '.github/' '.agents/' '.vscode/' 'apm.lock.yaml'
-            exit 1
-          fi
+      # Prime the local dependency cache in this fresh runner before
+      # the audit step replays the install for policy + drift checks.
+      - name: apm install
+        run: apm install --target copilot
 
       - name: apm audit (SARIF)
         run: |
@@ -90,7 +79,7 @@ jobs:
             --sarif apm-audit.sarif
 
       - name: Upload SARIF to Code Scanning
-        if: always()
+        if: always() && hashFiles('apm-audit.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: apm-audit.sarif

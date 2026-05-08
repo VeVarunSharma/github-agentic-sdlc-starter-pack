@@ -1,0 +1,185 @@
+# Dependabot configuration (v2)
+#
+# Part of the GitHub Agentic SDLC Starter Pack baseline.
+#
+# Consumers of this template should:
+#   1. Replace the `<owner>/<team>` placeholder under each `reviewers:` block
+#      with a real GitHub team handle (e.g. `acme-corp/platform-eng`).
+#   2. Adjust each `directory:` value if you relocate code (e.g. move `app/`
+#      to `services/api/`).
+#   3. Add an `npm` ecosystem entry rooted at `/` if you introduce a
+#      root-level package.json (today there is none — see comment below).
+#   4. Remove ecosystems you don't use (e.g. `docker` if you stop publishing
+#      a container image, or `devcontainers` if your runner doesn't support
+#      it yet — see comment on that block).
+#
+# Conventions used here:
+#   - Weekly cadence on Mondays so PRs land at the start of the week.
+#   - `minor-and-patch` are grouped into ONE rollup PR per ecosystem to
+#     reduce review fatigue. Major bumps are isolated into their own group
+#     (and clearly tagged in the PR title) so they get individual review.
+#   - PR limit of 10 per ecosystem so a noisy week can't drown the queue.
+#   - Commit message prefix `chore(deps)` to play nicely with Conventional
+#     Commits / changelog tooling.
+
+version: 2
+
+updates:
+
+  # -----------------------------------------------------------------------
+  # NOTE: there is no root-level npm package today. If you add a root
+  # package.json (e.g. for repo-wide tooling like husky / lint-staged),
+  # copy the `app/` npm block below and change `directory: "/app"` to
+  # `directory: "/"`. Keep the same group / label / reviewer settings.
+  # -----------------------------------------------------------------------
+
+  # ---- npm: application code in app/ -----------------------------------
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        update-types:
+          - "major"
+
+  # ---- GitHub Actions (workflow files under .github/workflows) ----------
+  # The `github-actions` ecosystem implicitly scans .github/workflows when
+  # `directory` is set to `/`.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        update-types:
+          - "major"
+
+  # ---- Terraform: bootstrap stack (OIDC / state / identity) -------------
+  - package-ecosystem: "terraform"
+    directory: "/infra/bootstrap"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        update-types:
+          - "major"
+
+  # ---- Terraform: application stack -------------------------------------
+  - package-ecosystem: "terraform"
+    directory: "/infra/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        update-types:
+          - "major"
+
+  # ---- Docker: app/ Dockerfile ------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "docker"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        applies-to: version-updates
+        update-types:
+          - "major"
+
+  # ---- Devcontainers ----------------------------------------------------
+  # NOTE: the `devcontainers` ecosystem is GA on github.com as of late
+  # 2024. If your runner / GHES version doesn't support it yet, REMOVE
+  # this block — Dependabot will reject the file otherwise.
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "devcontainers"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"

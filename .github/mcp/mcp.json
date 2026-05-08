@@ -1,0 +1,46 @@
+{
+  "_comment_1": "HAND-AUTHORED — MCP server reference for the GitHub Copilot cloud agent.",
+  "_comment_2": "The GitHub Copilot cloud agent does NOT auto-load this file from the repo. It reads MCP config from repository Settings → Copilot → Cloud agent → MCP configuration. Paste the contents of this file (excluding the leading `_comment_*` keys) into that settings panel to apply.",
+  "_comment_3": "Tracking the config in the repo means changes go through PR review and are version-controlled. Mirrors the three servers wired in `.vscode/mcp.json` so VS Code and the cloud agent see the same tools.",
+  "_comment_4": "Cloud-agent format reference: https://docs.github.com/en/copilot/customizing-copilot/extending-copilot-coding-agent-with-mcp",
+  "_comment_5": "Differences from `.vscode/mcp.json`: (1) top-level key is `mcpServers` (camelCase) not `servers`. (2) every server requires a `tools` allow-list — `*` enables all but is not recommended for the cloud agent. (3) secrets must be referenced as `$COPILOT_MCP_<NAME>` and configured in Settings → Copilot → Cloud agent → Environment.",
+
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer $COPILOT_MCP_GITHUB_PAT"
+      },
+      "tools": [
+        "get_issue",
+        "list_issues",
+        "get_pull_request",
+        "list_pull_requests",
+        "get_pull_request_files",
+        "get_pull_request_diff",
+        "list_code_scanning_alerts",
+        "search_code",
+        "search_issues",
+        "search_pull_requests"
+      ]
+    },
+
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp",
+      "tools": ["*"]
+    },
+
+    "azure": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "@azure/mcp@latest", "server", "start"],
+      "tools": [
+        "azure_cli_run",
+        "azure_resource_list",
+        "azure_resource_describe"
+      ]
+    }
+  }
+}

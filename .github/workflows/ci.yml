@@ -1,0 +1,129 @@
+# CI — Pull request gate
+#
+# What it gates:
+#   * `app/` ............. ESLint + node:test (no extra framework needed)
+#   * `infra/bootstrap/`,
+#     `infra/app/`,
+#     `examples/**/infra/`  Terraform `fmt -check` + `validate` only.
+#                          We deliberately do NOT run `terraform plan`
+#                          on PRs because that would either:
+#                            (a) require subscription-scope credentials
+#                                accessible from `pull_request` runs
+#                                (the OIDC subject `pull_request` is
+#                                granted in `infra/bootstrap` only for
+#                                this static-validation purpose), or
+#                            (b) cross the fork-safety boundary (a fork
+#                                PR can never safely receive an OIDC
+#                                token tied to the upstream identity).
+#                          Cloud-backed plans run in `infra-apply.yml`,
+#                          which is `workflow_dispatch` + the
+#                          `infra-apply` GitHub Environment.
+#
+# Conventions:
+#   * Concurrency cancel-in-progress on PR head ref so a force-push
+#     immediately supersedes the older run.
+#   * `permissions:` is the *minimum* needed (read-only contents).
+#   * Pinning Actions by full SHA is the org-hardening recommendation;
+#     the baseline pins by major and lets Dependabot push updates.
+#
+# Branch protection contract:
+#   `docs/repo-settings-checklist.md` declares the required check
+#   names. Renaming any job below requires updating that doc and the
+#   ruleset JSON in `.github/rulesets/` so PRs don't silently merge
+#   with checks unbound.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  app-lint-test:
+    name: app — lint + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  terraform-fmt-validate:
+    name: terraform — fmt + validate (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - infra/bootstrap
+          - infra/app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        working-directory: ${{ matrix.module }}
+        run: terraform fmt -check -diff -recursive
+
+      - name: terraform init (no backend)
+        working-directory: ${{ matrix.module }}
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate -no-color
+
+  docker-build:
+    name: docker — build sample app image (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build only — no push. Confirms the multi-stage Dockerfile builds
+      # cleanly on every PR. Push happens in azure-deploy.yml after merge.
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          file: app/Dockerfile
+          push: false
+          load: true
+          tags: agentic-sdlc-sample-app:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

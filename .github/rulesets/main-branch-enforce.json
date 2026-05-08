@@ -1,0 +1,66 @@
+{
+  "_comment": "Branch ruleset — ENFORCE mode (graduation).",
+  "_doc": [
+    "Enforce mode BLOCKS merges that violate the rules. Only flip to",
+    "this after every required check has run on at least one PR — if",
+    "a required check name doesn't bind to a real workflow job, every",
+    "PR will be unmergeable.",
+    "",
+    "Differences from evaluate mode:",
+    "  * `enforcement: active`",
+    "  * `require_code_owner_review: true`",
+    "  * `required_linear_history: true`",
+    "",
+    "Signed commits are NOT required in the baseline. The Copilot",
+    "coding agent does not currently sign its commits, and requiring",
+    "signatures would break the agent loop. Signed-commit enforcement",
+    "lives in `examples/public-oss-hardening/` instead.",
+    "",
+    "To import:",
+    "  gh api -X POST /repos/<owner>/<repo>/rulesets \\",
+    "    --input .github/rulesets/main-branch-enforce.json"
+  ],
+  "name": "main — enforce",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true,
+        "automatic_copilot_code_review_enabled": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": true,
+        "required_status_checks": [
+          { "context": "app — lint + tests" },
+          { "context": "terraform — fmt + validate (infra/bootstrap)" },
+          { "context": "terraform — fmt + validate (infra/app)" },
+          { "context": "docker — build sample app image (smoke)" },
+          { "context": "Analyze (javascript-typescript)" },
+          { "context": "apm install + audit" },
+          { "context": "Review dependency changes" }
+        ]
+      }
+    }
+  ]
+}

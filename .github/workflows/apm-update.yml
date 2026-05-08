@@ -1,0 +1,113 @@
+# APM update — Weekly freshness PR
+#
+# Opens (or refreshes) a PR titled `chore(deps): refresh apm.lock`
+# every Monday morning. The PR re-resolves apm.yml against the
+# upstream registry, regenerates `apm.lock.yaml`, and re-installs
+# APM-managed files into `.github/`, `.agents/`, and `.vscode/`.
+#
+# This is the *freshness* loop. The drift loop (`apm-audit.yml`)
+# fires on every PR/push to ensure the working tree never diverges
+# from the lockfile mid-flight.
+#
+# Approval / merge:
+#   * The PR is opened by the github-actions bot.
+#   * CODEOWNERS / reviewers gate it.
+#   * Merging the PR triggers `apm-audit.yml` on the new lockfile.
+#
+# Opt-out: if you don't want weekly refresh PRs, delete this workflow
+# (you'll still get manual refreshes via `workflow_dispatch` or local
+# `apm install`).
+
+name: APM Update
+
+on:
+  schedule:
+    # Mondays 08:17 UTC — slightly after Dependabot's typical weekly
+    # window so the two PR streams don't collide on a busy queue.
+    - cron: '17 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  APM_VERSION: '0.12.4'
+
+jobs:
+  refresh-lockfile:
+    name: apm update + open PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use a fresh clone so the PR diff is meaningful.
+          fetch-depth: 0
+
+      - name: Install APM CLI (pinned)
+        run: |
+          curl -sSL https://aka.ms/apm-unix | sh
+          echo "$HOME/.apm/bin" >> "$GITHUB_PATH"
+
+      - name: apm update (re-resolve against upstream)
+        run: |
+          # `apm update` re-resolves all dependencies and rewrites the
+          # lockfile. `apm install` then materialises any new managed
+          # files into the repo. Both are required for a clean PR.
+          apm update --target copilot
+          apm install --target copilot
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet --exit-code -- '.github/' '.agents/' '.vscode/' 'apm.lock.yaml'; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream APM changes since the current lockfile."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- '.github/' '.agents/' '.vscode/' 'apm.lock.yaml'
+          fi
+
+      - name: Open / refresh PR
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/apm-refresh-lockfile
+          base: main
+          delete-branch: true
+          commit-message: |
+            chore(deps): refresh apm.lock
+
+            Re-resolved by the weekly apm-update workflow.
+
+            Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          title: 'chore(deps): refresh apm.lock'
+          body: |
+            ## What this PR does
+
+            Re-resolves `apm.yml` against the upstream registry, refreshes
+            `apm.lock.yaml`, and updates APM-managed files in `.github/`,
+            `.agents/`, and `.vscode/` to the latest pinned SHAs.
+
+            ## How to review
+
+            1. Read the diff. Most changes will be in
+               `.github/instructions/`, `.github/skills/`, and
+               `.vscode/mcp.json`.
+            2. Spot-check the new file contents against the upstream
+               source (links live in `docs/upstream-sources.md`).
+            3. Watch for `apm-audit` to pass on this PR.
+
+            ## How to opt out
+
+            Delete `.github/workflows/apm-update.yml`. Manual refresh
+            still works via `apm install` locally.
+
+            ---
+            *Opened by `apm-update.yml`. Drift detection runs in
+            `apm-audit.yml` on every PR.*
+          labels: |
+            dependencies
+            apm
+            automation

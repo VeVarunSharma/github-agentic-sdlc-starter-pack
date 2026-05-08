@@ -1,0 +1,36 @@
+# Container Apps variant — most of these come from infra/bootstrap
+# outputs and are passed via -var=... in CI. The example here is for
+# local dev / one-off runs.
+
+subscription_id     = "00000000-0000-0000-0000-000000000000"
+tenant_id           = "00000000-0000-0000-0000-000000000000"
+client_id           = "00000000-0000-0000-0000-000000000000"
+resource_group_name = "agentic-sdlc-app-rg"
+location            = "eastus"
+name_prefix         = "agentic-sdlc"
+
+# Globally unique. 5-50 lowercase alphanumeric, no hyphens.
+acr_name = "agenticsdlcacr0001"
+
+# Container Apps tunables. Defaults are scale-to-zero, cheap, suitable
+# for dev/test. For production, set min_replicas >= 1.
+# min_replicas = 0
+# max_replicas = 10
+# cpu          = 0.5
+# memory       = "1Gi"
+
+# Cost knobs.
+# acr_sku            = "Standard"
+# log_retention_days = 30
+
+# Initial container image. The deploy workflow rolls this forward to
+# the freshly-built image tagged by SHA. lifecycle.ignore_changes
+# keeps Terraform from reverting after deploy.
+# container_image = "<acr>.azurecr.io/sample-app:<sha>"
+
+# tags = {
+#   project   = "agentic-sdlc-starter-pack"
+#   component = "app"
+#   variant   = "container-apps"
+#   owner     = "platform-eng@example.com"
+# }

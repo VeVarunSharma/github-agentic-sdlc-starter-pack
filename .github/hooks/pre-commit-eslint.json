@@ -1,0 +1,18 @@
+{
+  "_comment_1": "HAND-AUTHORED — Copilot/APM lifecycle hook that runs ESLint on staged JS files.",
+  "_comment_2": "Hooks here are read by Copilot CLI / APM-aware clients. They are NOT a substitute for git's own pre-commit hooks (which are not version-controllable). For the git-native equivalent, install Husky in app/ and reference this same script.",
+  "_comment_3": "Schema: `event` names the lifecycle moment; `command` is the shell command to run; `paths` filters which staged files trigger the hook; `failOn` describes how to interpret the exit code. Keep this file <100 lines.",
+
+  "name": "pre-commit-eslint",
+  "description": "Run ESLint on staged JavaScript files in app/ before allowing the commit.",
+  "event": "pre-commit",
+  "paths": [
+    "app/**/*.js",
+    "app/**/*.mjs"
+  ],
+  "command": "cd app && npx eslint --max-warnings=0 $(git diff --cached --name-only --diff-filter=ACMR -- 'app/**/*.js' 'app/**/*.mjs' | sed 's|^app/||')",
+  "failOn": "non-zero-exit",
+  "onFailureMessage": "ESLint reported errors or warnings on staged files. Fix them (or run `npx eslint --fix`) and re-stage before committing.",
+
+  "_compatibility_note": "If the host client (Copilot CLI, APM) does not support the `pre-commit` hook event, this file is a no-op. The same command can be wired into a Husky pre-commit hook by adding `\"prepare\": \"husky install\"` to app/package.json and creating .husky/pre-commit with the same shell command."
+}

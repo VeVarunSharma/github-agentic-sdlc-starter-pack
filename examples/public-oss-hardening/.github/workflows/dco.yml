@@ -1,0 +1,80 @@
+# DCO check — Developer Certificate of Origin
+#
+# Verifies every non-merge commit in the PR contains a
+# `Signed-off-by:` trailer matching the commit author. Implements the
+# same contract as the GitHub-hosted DCO Probot App — but as a
+# repo-tracked workflow that's reviewable in PRs.
+#
+# To enforce, register the job's check name (`dco — verify sign-off`)
+# as a required status check in your branch ruleset (see
+# main-branch-oss-hardening.json in this overlay).
+
+name: DCO
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    name: dco — verify sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head with full history of the PR commits
+        uses: actions/checkout@v4
+        with:
+          # Need the PR head + all commits between base and head; fetch-depth 0
+          # is heavy but avoids missing commits on long-running PRs.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify each commit has a matching Signed-off-by trailer
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          range="${BASE_SHA}..${HEAD_SHA}"
+          echo "Inspecting commit range: ${range}"
+
+          # Skip merge commits (--no-merges); GitHub generates these for
+          # PR base updates and they don't need their own sign-off.
+          mapfile -t commits < <(git log --no-merges --format='%H' "${range}")
+
+          if [ ${#commits[@]} -eq 0 ]; then
+            echo "No non-merge commits in range. Nothing to verify."
+            exit 0
+          fi
+
+          fail=0
+          for sha in "${commits[@]}"; do
+            author_name="$(git log -1 --format='%an' "${sha}")"
+            author_email="$(git log -1 --format='%ae' "${sha}")"
+            expected="Signed-off-by: ${author_name} <${author_email}>"
+            body="$(git log -1 --format='%B' "${sha}")"
+
+            if grep -Fxq "${expected}" <<<"${body}"; then
+              echo "✔ ${sha:0:12} — sign-off present (${author_email})"
+            else
+              echo "✘ ${sha:0:12} — MISSING or MISMATCHED sign-off"
+              echo "    expected: ${expected}"
+              echo "    actual trailers:"
+              git log -1 --format='%B' "${sha}" | grep -E '^(Signed-off-by|Co-authored-by):' || echo "    (none)"
+              fail=1
+            fi
+          done
+
+          if [ "${fail}" -ne 0 ]; then
+            echo ""
+            echo "::error::One or more commits lack a matching Signed-off-by trailer."
+            echo "Fix locally with: git rebase --signoff ${BASE_SHA}"
+            exit 1
+          fi
+
+          echo ""
+          echo "All ${#commits[@]} commit(s) signed off."

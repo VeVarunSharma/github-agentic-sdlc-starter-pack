@@ -1,0 +1,60 @@
+// Dev Container / Codespaces definition for the Agentic SDLC Starter Pack.
+// Schema: https://containers.dev/implementors/json_reference/
+{
+  "name": "Agentic SDLC Starter Pack",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.9"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+
+  // Install app deps (best-effort) and the APM CLI.
+  // APM CLI install method: official one-line installer documented at
+  //   https://microsoft.github.io/apm/getting-started/installation/
+  // Spike A note: this installs the latest published APM release. Pin to a
+  //   specific version once we standardise on one (the script accepts an
+  //   APM_VERSION env var on most installers).
+  // TODO: pin APM CLI version once Spike A confirms the pinning mechanism for
+  //   the unix install script.
+  "postCreateCommand": "npm --prefix app ci || true && curl -sSL https://aka.ms/apm-unix | sh",
+
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Sample app",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.copilot",
+        "github.copilot-chat",
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "hashicorp.terraform",
+        "ms-azuretools.vscode-docker",
+        "ms-azuretools.vscode-azureappservice",
+        "dbaeumer.vscode-eslint",
+        "editorconfig.editorconfig",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "EDITOR": "code --wait"
+  },
+
+  "remoteUser": "node"
+}

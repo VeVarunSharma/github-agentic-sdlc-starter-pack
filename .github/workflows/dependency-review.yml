@@ -1,0 +1,56 @@
+# Dependency Review
+#
+# What this gates:
+#   On every pull request, this workflow asks the GHAS Dependency Review API
+#   to compare the dependency manifests in the PR diff against the base branch
+#   and fail the check if any *newly introduced* dependency is vulnerable
+#   (>= high severity) or carries a denied license. It will leave a comment
+#   summary on the PR when it fails so the author can act without digging
+#   through logs.
+#
+# Scope:
+#   The action only inspects the *PR diff* — it does NOT scan the whole repo
+#   or pre-existing dependencies. Use Dependabot alerts / `npm audit` /
+#   `terraform providers` audits for the full inventory; this is a guardrail
+#   on what the PR is *adding*.
+#
+# Prerequisites (one-time, in repo Settings):
+#   - Settings -> Code security: enable "Dependency graph"
+#   - Settings -> Code security: enable "Dependabot alerts"
+#   - GHAS must be available on the repo (public repos: free; private: license)
+#   See docs/repo-settings-checklist.md for the full list.
+#
+# Locked-down orgs: if the action cannot post a PR comment, drop the
+# `pull-requests: write` permission and rely on the failing check status.
+
+name: Dependency Review
+
+on:
+  pull_request:
+  # Also evaluate when PRs enter the merge queue so we don't merge a batch
+  # that introduces a high-severity vulnerability between PR open and merge.
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          vulnerability-check: true
+          license-check: true
+          comment-summary-in-pr: on-failure
+          # Keep this list short and conservative. Consumers of the starter
+          # pack should review against their own org policy (e.g. OSPO list)
+          # before expanding. SPDX identifiers only.
+          deny-licenses: GPL-3.0, AGPL-3.0

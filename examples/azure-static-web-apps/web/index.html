@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agentic SDLC SWA Example</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1f2328;
+        --muted: #57606a;
+        --bg: #ffffff;
+        --accent: #0969da;
+        --ok: #1a7f37;
+        --err: #cf222e;
+        --card: #f6f8fa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e6edf3;
+          --muted: #8d96a0;
+          --bg: #0d1117;
+          --accent: #58a6ff;
+          --ok: #3fb950;
+          --err: #f85149;
+          --card: #161b22;
+        }
+      }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+      body {
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem;
+      }
+      header h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+      header p  { margin: 0; color: var(--muted); }
+      main { margin-top: 2rem; }
+      button {
+        background: var(--accent);
+        color: white;
+        border: 0;
+        padding: 0.55rem 1rem;
+        border-radius: 6px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      pre {
+        background: var(--card);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 0.875rem;
+      }
+      .ok  { color: var(--ok); }
+      .err { color: var(--err); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Agentic SDLC SWA Example</h1>
+      <p>Azure Static Web Apps variant of the GitHub Agentic SDLC starter pack.</p>
+    </header>
+
+    <main>
+      <p>
+        This page is served from the global SWA edge. Click the button to call
+        <code>/api/health</code>, which is handled by the co-deployed Azure
+        Functions API. If you removed the <code>api/</code> folder, you'll see
+        a friendly error instead.
+      </p>
+
+      <p>
+        <button id="check">Check API health</button>
+      </p>
+
+      <pre id="out" aria-live="polite">Idle.</pre>
+    </main>
+
+    <script>
+      (function () {
+        var btn = document.getElementById('check');
+        var out = document.getElementById('out');
+
+        btn.addEventListener('click', async function () {
+          btn.disabled = true;
+          out.className = '';
+          out.textContent = 'Calling /api/health …';
+          try {
+            var res = await fetch('/api/health', { headers: { accept: 'application/json' } });
+            var body = await res.text();
+            var pretty = body;
+            try { pretty = JSON.stringify(JSON.parse(body), null, 2); } catch (_) {}
+            out.className = res.ok ? 'ok' : 'err';
+            out.textContent = 'HTTP ' + res.status + '\n\n' + pretty;
+          } catch (err) {
+            out.className = 'err';
+            out.textContent = 'Request failed: ' + (err && err.message ? err.message : err) +
+              '\n\n(If you have not deployed the api/ folder, this is expected.)';
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

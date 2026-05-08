@@ -1,0 +1,104 @@
+name: Deploy SPA to Azure Static Web Apps
+
+# This workflow REPLACES the baseline `azure-deploy.yml`.
+#
+# How it works:
+#   - On push to main: builds (if needed) and deploys to the production
+#     environment of the Static Web App.
+#   - On pull_request opened/synchronize/reopened: deploys an isolated
+#     preview environment at https://<swa>-<pr#>.<region>.azurestaticapps.net.
+#   - On pull_request closed: tears down the preview environment.
+#
+# Where the API token comes from:
+#   The `azurerm_static_web_app` resource in `infra/app/main.tf` exposes
+#   `api_key` as a (sensitive) Terraform output. Wire that into the repo
+#   secret `AZURE_STATIC_WEB_APPS_API_TOKEN` — either manually
+#   (`gh secret set ...`) or via the `github_actions_secret` resource in
+#   the Terraform `github` provider. Rotate with
+#   `az staticwebapp secrets reset-api-key`.
+#
+# OIDC-only alternative (token-free):
+#   You can drop the API token entirely by replacing the
+#   `Azure/static-web-apps-deploy@v1` step with:
+#       - uses: azure/login@v2
+#         with:
+#           client-id: ${{ secrets.AZURE_CLIENT_ID }}
+#           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+#           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+#       - run: npm install -g @azure/static-web-apps-cli
+#       - run: swa deploy ./web --api-location ./api --env production
+#   Caveat: the `swa` CLI does not (yet) drive the per-PR preview
+#   lifecycle the way `static-web-apps-deploy@v1` does. If preview envs
+#   matter to you, stick with the token-based flow below.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'api/**'
+      - 'staticwebapp.config.json'
+      - '.github/workflows/azure-deploy.yml'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'web/**'
+      - 'api/**'
+      - 'staticwebapp.config.json'
+      - '.github/workflows/azure-deploy.yml'
+
+permissions:
+  id-token: write       # for the OIDC alternative; harmless for the token flow
+  contents: read
+  pull-requests: write  # so the action can comment the preview URL on the PR
+
+jobs:
+  build_and_deploy:
+    # On `closed` events we only need to run the cleanup step, not a deploy.
+    # Skip the whole job for closed-but-not-merged PRs from forks where the
+    # action would 401 anyway.
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          # lfs: true  # uncomment if the SPA pulls assets via Git LFS
+
+      # The dependency-free SPA in `web/` needs no build step.
+      # If you swap in a framework (Vite/Next/Astro/etc.), uncomment and
+      # adapt the steps below, then set `output_location` on the deploy
+      # action to your build directory (e.g. "dist", ".next", "build").
+      #
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20'
+      #     cache: 'npm'
+      #     cache-dependency-path: web/package-lock.json
+      # - name: Install + build
+      #   working-directory: web
+      #   run: |
+      #     npm ci
+      #     npm run build
+
+      - name: Deploy to Azure Static Web Apps
+        id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # `upload` builds + deploys; `close` tears down the PR preview.
+          action: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && 'close' || 'upload' }}
+          app_location: 'web'                # path to the SPA source
+          api_location: 'api'                # path to the Functions API ('' to disable)
+          output_location: ''                # build artifact dir; '' = no build (serve `web/` as-is)
+          # skip_app_build: true             # uncomment if you build in a previous step
+          # skip_api_build: true             # uncomment if you build the Functions API yourself

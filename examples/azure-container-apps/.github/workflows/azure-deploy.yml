@@ -1,0 +1,148 @@
+# Azure deploy — Roll the sample app container forward (Container Apps variant)
+#
+# Trigger: push to main (after squash merge).
+#
+# What this workflow does:
+#   1. `azure/login@v2` — OIDC, federated subject
+#      `repo:<owner>/<repo>:environment:production`.
+#   2. `az acr login` against the workload's ACR.
+#   3. `docker build` + `docker push` (image tag = commit SHA).
+#   4. `az containerapp update --image` — points the Container App at
+#      the freshly-pushed image. The Container App's system-assigned MI
+#      pulls the image (AcrPull granted in `infra/app`).
+#   5. Smoke test the public FQDN.
+#
+# What this workflow does NOT do:
+#   * It does not run `terraform apply`. Infra changes flow through
+#     `infra-apply.yml` so a code-only deploy never silently mutates
+#     infrastructure.
+#   * It does not push the `:latest` tag. Every image is addressed by
+#     the immutable commit SHA so rollbacks are deterministic
+#     (`az containerapp update --image <acr>/<image>:<previous-sha>`).
+
+name: Azure Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/azure-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: azure-deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: sample-app
+
+jobs:
+  deploy:
+    name: Build, push, deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ steps.containerapp.outputs.fqdn }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve workload settings
+        id: workload
+        run: |
+          set -euo pipefail
+          : "${AZURE_RESOURCE_GROUP:?must be set}"
+          : "${AZURE_ACR_NAME:?must be set}"
+          : "${AZURE_CONTAINERAPP_NAME:?must be set}"
+          ACR_LOGIN_SERVER="${AZURE_ACR_NAME}.azurecr.io"
+          IMAGE_TAG="${GITHUB_SHA::12}"
+          IMAGE_REF="${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
+          {
+            echo "acr_login_server=${ACR_LOGIN_SERVER}"
+            echo "image_tag=${IMAGE_TAG}"
+            echo "image_ref=${IMAGE_REF}"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+          AZURE_CONTAINERAPP_NAME: ${{ vars.AZURE_CONTAINERAPP_NAME }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: ACR login
+        run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
+
+      - name: Build + push image
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          file: app/Dockerfile
+          push: true
+          tags: ${{ steps.workload.outputs.image_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Update Container App image
+        # `az containerapp update --image` creates a new revision and
+        # (in Single revision mode) shifts 100% traffic to it once it's
+        # healthy. Old revisions remain queryable for rollback via
+        # `az containerapp revision list ...`.
+        run: |
+          az containerapp update \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_CONTAINERAPP_NAME }}" \
+            --image "${{ steps.workload.outputs.image_ref }}"
+
+      - name: Resolve Container App FQDN
+        id: containerapp
+        run: |
+          fqdn="$(az containerapp show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_CONTAINERAPP_NAME }}" \
+            --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "fqdn=${fqdn}" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test /health
+        run: |
+          set -euo pipefail
+          url="https://${{ steps.containerapp.outputs.fqdn }}/health"
+          echo "Probing ${url}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            code="$(curl -s -o /tmp/health.json -w '%{http_code}' "${url}" || true)"
+            if [ "${code}" = "200" ]; then
+              echo "Healthy:"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "  attempt ${i}: HTTP ${code} — retrying in 6s"
+            sleep 6
+          done
+          echo "::error::/health did not return 200 after 60s"
+          exit 1
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          {
+            echo "## Deployed (Container Apps variant)"
+            echo ""
+            echo "* **Image:** \`${{ steps.workload.outputs.image_ref }}\`"
+            echo "* **Container App:** \`${{ vars.AZURE_CONTAINERAPP_NAME }}\`"
+            echo "* **FQDN:** https://${{ steps.containerapp.outputs.fqdn }}"
+            echo "* **SHA:** \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

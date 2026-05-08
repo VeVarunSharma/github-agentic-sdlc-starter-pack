@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new capability or enhancement.
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea? Great. If you already know the implementation
+        plan, prefer the **Spec — agent-ready** template instead so
+        an agent can pick it up.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user / operator problem are we solving?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Roughly how should it work? Diagrams welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you think about, and why didn't you pick it?
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Who benefits?
+      description: Personas, roles, or org sizes that get value from this.

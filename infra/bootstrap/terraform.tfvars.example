@@ -1,0 +1,35 @@
+# Copy this file to terraform.tfvars (or pass --var-file=...) and fill
+# in the values. The example uses placeholders that match the
+# template-cleanup workflow's renaming pass.
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "eastus"
+
+# These two trigger the federated credential subjects that bind to
+# this exact GitHub repo. Renaming the repo invalidates the credentials
+# — re-run `scripts/setup-azure-oidc.sh --rotate` after any rename.
+github_owner = "<owner>"
+github_repo  = "<repo>"
+
+# Override only if the defaults collide with an existing convention
+# in your subscription. Otherwise leave commented.
+# name_prefix          = "agentic-sdlc"
+# app_rg_name          = "agentic-sdlc-app-rg"
+# deploy_identity_name = "agentic-sdlc-deploy-mi"
+
+# tfstate storage account names must be globally unique across Azure
+# (3-24 lowercase alphanumeric). Use a short workload + suffix pattern.
+state_storage_account_name = "agenticsdlctfstate0001"
+# state_rg_name            = "agentic-sdlc-state-rg"
+# create_state_backend     = true
+
+# Federated credential for pull_request runs. Defaults to true (used
+# for `terraform fmt` + `validate` only — NO cloud-backed plan on PRs
+# from forks). See docs/agentic-sdlc.md for the fork-safety rationale.
+# enable_pr_federation = true
+
+# tags = {
+#   project   = "agentic-sdlc-starter-pack"
+#   component = "bootstrap"
+#   owner     = "platform-eng@example.com"
+# }

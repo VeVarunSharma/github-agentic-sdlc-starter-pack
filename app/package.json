@@ -1,0 +1,23 @@
+{
+  "name": "agentic-sdlc-sample-app",
+  "version": "0.1.0",
+  "description": "Minimal Node/Express sample for the GitHub Agentic SDLC Starter Pack — the deploy target.",
+  "private": true,
+  "license": "MIT",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0"
+  }
+}

@@ -14,10 +14,10 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "express": "^4.21.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0"
   }
 }

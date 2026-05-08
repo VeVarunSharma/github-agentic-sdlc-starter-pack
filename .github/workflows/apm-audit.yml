@@ -7,8 +7,8 @@
 #   2. `apm audit --ci --policy ./apm-policy.yml` — enforces the
 #      governance policy (allow-list, MCP transports, signature
 #      checks, unmanaged-files action) and performs drift detection by
-#      default. SARIF is uploaded to the Security tab so violations
-#      show alongside CodeQL.
+#      default. When the pinned CLI supports `--sarif`, findings are
+#      uploaded to the Security tab so violations show alongside CodeQL.
 #
 # What it explicitly does NOT do:
 #   * It must NOT run `apm compile -t copilot`. The hand-authored
@@ -71,12 +71,18 @@ jobs:
       - name: apm install
         run: apm install --target copilot
 
-      - name: apm audit (SARIF)
+      - name: apm audit (SARIF when supported)
         run: |
-          apm audit \
-            --ci \
-            --policy ./apm-policy.yml \
-            --sarif apm-audit.sarif
+          if apm audit --help | grep -q -- '--sarif'; then
+            apm audit \
+              --ci \
+              --policy ./apm-policy.yml \
+              --sarif apm-audit.sarif
+          else
+            apm audit \
+              --ci \
+              --policy ./apm-policy.yml
+          fi
 
       - name: Upload SARIF to Code Scanning
         if: always() && hashFiles('apm-audit.sarif') != ''

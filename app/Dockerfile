@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 
 # Stage 1: install production dependencies
-FROM node:22-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Stage 2: runtime image
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /home/node/app
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node . .

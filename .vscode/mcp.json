@@ -1,0 +1,25 @@
+{
+  "servers": {
+    "io.github.github/github-mcp-server": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {}
+    },
+    "microsoftdocs/mcp": {
+      "type": "sse",
+      "url": "https://learn.microsoft.com/api/mcp",
+      "headers": {}
+    },
+    "com.microsoft/azure": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure/mcp",
+        "server",
+        "start"
+      ]
+    }
+  },
+  "inputs": []
+}

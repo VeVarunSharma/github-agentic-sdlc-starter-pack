@@ -1,0 +1,148 @@
+# Infra apply — Manual cloud-backed Terraform
+#
+# Why this is split from azure-deploy.yml:
+#   * Code deploys (push to main) should NEVER silently mutate
+#     infrastructure. If they could, an unrelated commit on main
+#     would risk an unintended Azure change. Splitting infra into a
+#     separate, manually-triggered workflow makes the change
+#     deliberate and auditable.
+#   * The `infra-apply` GitHub Environment gates this workflow with
+#     a required approval (configure under Settings -> Environments).
+#     `azure-deploy.yml` uses the `production` environment instead,
+#     which can have its own (typically lower-friction) approval
+#     policy.
+#
+# What this workflow does:
+#   1. `azure/login@v2` — OIDC, federated subject
+#      `repo:<owner>/<repo>:environment:infra-apply`.
+#   2. `terraform init` — remote state in the bootstrap-provisioned
+#      storage account (auth via OIDC, no shared key).
+#   3. `terraform plan` — full plan, output saved to job summary.
+#   4. `terraform apply -auto-approve` — only after the environment
+#      approval has been granted.
+#
+# Note on `pull_request` runs: PR validation runs in `ci.yml`
+# (`fmt -check + validate` only). PRs do NOT touch this workflow,
+# regardless of source branch.
+
+name: Infra Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Which infra module to apply'
+        required: true
+        default: 'app'
+        type: choice
+        options:
+          - app
+          # `bootstrap` is intentionally excluded. It is human-run with
+          # `az login` (see infra/bootstrap/README.md). The federated
+          # credentials it provisions are the trust anchor for this
+          # workflow — running bootstrap from CI would be circular.
+      auto_approve:
+        description: 'Apply without manual approval gate (overrides environment approval). USE WITH CARE.'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+concurrency:
+  group: infra-apply-${{ inputs.module }}
+  cancel-in-progress: false   # never cancel an in-flight apply
+
+jobs:
+  apply:
+    name: terraform apply (${{ inputs.module }})
+    runs-on: ubuntu-latest
+    environment: infra-apply
+    defaults:
+      run:
+        working-directory: infra/${{ inputs.module }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+
+      - name: terraform init
+        env:
+          # azurerm backend will use OIDC + AAD auth; both come from
+          # `azure/login@v2` above. ARM_USE_OIDC tells the backend to
+          # request an ID token from GitHub at init time.
+          ARM_USE_OIDC: 'true'
+          ARM_USE_AZUREAD: 'true'
+        run: |
+          terraform init \
+            -input=false \
+            -backend-config="resource_group_name=${{ vars.AZURE_TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.AZURE_TFSTATE_CONTAINER }}"
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive
+
+      - name: terraform validate
+        run: terraform validate -no-color
+
+      - name: terraform plan
+        id: plan
+        env:
+          ARM_USE_OIDC: 'true'
+          ARM_USE_AZUREAD: 'true'
+        run: |
+          terraform plan \
+            -input=false \
+            -no-color \
+            -out=tfplan \
+            -var="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -var="client_id=${{ vars.AZURE_CLIENT_ID }}" \
+            -var="resource_group_name=${{ vars.AZURE_RESOURCE_GROUP }}" \
+            -var="acr_name=${{ vars.AZURE_ACR_NAME }}"
+
+      - name: Plan summary
+        run: |
+          {
+            echo "## terraform plan — \`infra/${{ inputs.module }}\`"
+            echo ""
+            echo "<details><summary>Plan output</summary>"
+            echo ""
+            echo '```'
+            terraform show -no-color tfplan
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: terraform apply
+        env:
+          ARM_USE_OIDC: 'true'
+          ARM_USE_AZUREAD: 'true'
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Capture outputs for downstream workflows
+        id: outputs
+        run: |
+          {
+            echo "## Outputs"
+            echo ""
+            echo '```json'
+            terraform output -json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

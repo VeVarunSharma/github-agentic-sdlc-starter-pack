@@ -1,0 +1,92 @@
+# APM audit — Drift + policy check
+#
+# What it gates:
+#   1. `apm install --target copilot` — populates the local APM cache
+#      in the fresh runner environment so audit can replay the locked
+#      install without refetching dependencies.
+#   2. `apm audit --ci --policy ./apm-policy.yml` — enforces the
+#      governance policy (allow-list, MCP transports, signature
+#      checks, unmanaged-files action) and performs drift detection by
+#      default. When the pinned CLI supports `--sarif`, findings are
+#      uploaded to the Security tab so violations show alongside CodeQL.
+#
+# What it explicitly does NOT do:
+#   * It must NOT run `apm compile -t copilot`. The hand-authored
+#     `.github/copilot-instructions.md` is the primary agent context;
+#     `apm compile` would overwrite it. The compile step is reserved
+#     for repos that are 100% APM-managed — see
+#     `docs/apm-ownership-model.md`.
+#
+# Cadence:
+#   * Every PR (so policy violations surface before merge).
+#   * Push to main (so the Security tab stays in sync after merges).
+#   * `apm-update.yml` covers freshness — this workflow is purely
+#     drift / policy.
+
+name: APM Audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+  security-events: write   # required for upload-sarif
+
+concurrency:
+  group: apm-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Pinned version. Bump this AND `apm-policy.yml`'s `cli.version`
+  # together. Spike F documented v0.12.3 as a breaking change for
+  # strict target detection; v0.12.4 is the verified floor.
+  APM_VERSION: '0.12.4'
+
+jobs:
+  audit:
+    name: apm install + audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install APM CLI (pinned)
+        run: |
+          curl -sSL https://aka.ms/apm-unix | sh
+          echo "$HOME/.apm/bin" >> "$GITHUB_PATH"
+
+      - name: Verify APM version
+        run: |
+          installed="$(apm --version | awk '{print $(NF-1)}')"
+          if [ "$installed" != "${{ env.APM_VERSION }}" ]; then
+            echo "::warning::Installed APM version $installed != pinned ${{ env.APM_VERSION }}"
+          fi
+          apm --version
+
+      # Prime the local dependency cache in this fresh runner before
+      # the audit step replays the install for policy + drift checks.
+      - name: apm install
+        run: apm install --target copilot
+
+      - name: apm audit (SARIF when supported)
+        run: |
+          if apm audit --help | grep -q -- '--sarif'; then
+            apm audit \
+              --ci \
+              --policy ./apm-policy.yml \
+              --sarif apm-audit.sarif
+          else
+            apm audit \
+              --ci \
+              --policy ./apm-policy.yml
+          fi
+
+      - name: Upload SARIF to Code Scanning
+        if: always() && hashFiles('apm-audit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: apm-audit.sarif
+          category: apm-audit

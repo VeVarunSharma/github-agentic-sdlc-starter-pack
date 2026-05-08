@@ -1,0 +1,58 @@
+{
+  "_comment": "Branch ruleset — EVALUATE mode (default).",
+  "_doc": [
+    "Evaluate mode logs rule outcomes to the Insights -> Rule insights tab",
+    "WITHOUT blocking merges. Use this on day one so you can see which",
+    "PRs *would* have been blocked before flipping to enforce mode.",
+    "",
+    "To import:",
+    "  gh api -X POST /repos/<owner>/<repo>/rulesets \\",
+    "    --input .github/rulesets/main-branch-evaluate.json",
+    "",
+    "After every required check has run on at least one PR (so the rule",
+    "names bind to the correct workflow jobs), import the enforce-mode",
+    "ruleset to graduate. See docs/repo-settings-checklist.md."
+  ],
+  "name": "main — evaluate",
+  "target": "branch",
+  "enforcement": "evaluate",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "automatic_copilot_code_review_enabled": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": true,
+        "required_status_checks": [
+          { "context": "app — lint + tests" },
+          { "context": "terraform — fmt + validate (infra/bootstrap)" },
+          { "context": "terraform — fmt + validate (infra/app)" },
+          { "context": "docker — build sample app image (smoke)" },
+          { "context": "Analyze (javascript-typescript)" },
+          { "context": "apm install + audit" },
+          { "context": "Review dependency changes" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+# APM governance policy.
+#
+# Enforced by `apm install` (locally) and `apm audit --ci --policy
+# ./apm-policy.yml` in the `apm-audit.yml` workflow. Defines what
+# dependencies and MCP transports are allowed, how strictly violations
+# are reported, and how unmanaged files (the hand-authored `.github/*`
+# primitives) are surfaced.
+#
+# Schema reference: https://microsoft.github.io/apm/enterprise/policy-reference/
+# Confirmed against the upstream schema at this commit. Pin APM CLI to
+# v0.12.4 (matching apm.yml) so the schema stays stable.
+#
+# The Policy Reference notes the schema is experimental; bump
+# `apm_version` in apm.yml in lockstep with any APM CLI upgrade.
+
+name: "GitHub Agentic SDLC Starter Pack policy"
+version: "1.0.0"
+
+# Block-on-violation. Any policy rule failure aborts `apm install` and
+# fails `apm audit --ci`. Coexists with `unmanaged_files.action: warn`
+# so hand-authored files surface as warnings without blocking the audit.
+enforcement: block
+
+# Fail closed if APM cannot fetch a dependency or its provenance metadata.
+# `warn` would let an offline / outage condition silently produce a
+# partial install — `block` makes it visible and blocks the PR.
+fetch_failure: block
+
+# --- Dependencies ----------------------------------------------------
+#
+# Allow-list. Only sources matching these globs are accepted.
+# `github/**` covers awesome-copilot and any other GitHub-hosted source
+# we curate; `microsoft/**` covers MS-owned MCP servers and skills.
+# Add new orgs here only after a security review.
+dependencies:
+  allow:
+    - "github/**"
+    - "microsoft/**"
+  deny: []
+  require: []
+
+# --- MCP servers -----------------------------------------------------
+mcp:
+  transport:
+    # http for hosted servers (GitHub remote MCP, MS Learn);
+    # stdio for local servers (Azure MCP via npx).
+    # `sse` and `streamable-http` are intentionally rejected.
+    allow:
+      - http
+      - stdio
+  # If a registered MCP server itself depends on other MCP servers,
+  # do NOT trust them transitively. Each transitive dependency must be
+  # vetted and explicitly registered in apm.yml.
+  trust_transitive: false
+  # `self_defined` MCP servers (declared inside an APM package itself,
+  # not in the registry) require explicit re-declaration in this repo's
+  # apm.yml. `warn` is the upstream default; we keep it.
+  self_defined: warn
+
+# --- Unmanaged files -------------------------------------------------
+#
+# CRITICAL for this repo's hand-authored + APM-installed coexistence.
+#
+# APM monitors a default set of governance directories (see
+# https://microsoft.github.io/apm/enterprise/policy-reference/#directories).
+# Of those, three apply here: `.github/agents`, `.github/instructions`,
+# `.github/hooks`. Any file in those directories that is NOT in
+# `apm.lock.yaml` is considered "unmanaged".
+#
+# We deliberately ship hand-authored examples in those directories
+# (e.g. `.github/instructions/app-nodejs.instructions.md`) — they MUST
+# survive `apm install` and CI audit. Setting `action: warn` makes
+# `apm audit --ci` PASS the unmanaged-files check while still surfacing
+# the file list as a warning, so reviewers can spot accidentally
+# committed files. The hand-authored chatmode/prompt/skill/MCP
+# primitives are NOT in the monitored directory set, so they are not
+# flagged at all.
+#
+# Promote to `deny` only if you switch this repo to a fully
+# APM-managed model and remove all hand-authored files from
+# `.github/instructions/`, `.github/agents/`, and `.github/hooks/`.
+unmanaged_files:
+  action: warn
+  # Keep the upstream default monitored directory list (do NOT override
+  # to `[]` — that would silently disable the check).
+
+# --- Hidden Unicode scanner -----------------------------------------
+#
+# The hidden-Unicode content scan is built into `apm install` and
+# `apm audit`. APM blocks Critical findings (RTL/LTR overrides) by
+# default and warns on lower severities. No explicit policy block is
+# needed; reaffirmed here as a comment to set reviewer expectation.

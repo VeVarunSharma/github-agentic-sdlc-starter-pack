@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# Node.js
+# ---------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tgz
+.npm/
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------------------
+# Terraform
+# (NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it.)
+# ---------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Real tfvars (with subscription IDs / object IDs) must never be committed.
+# Only the *.tfvars.example templates ship with the repo.
+*.tfvars
+!*.tfvars.example
+
+# ---------------------------------------------------------------------------
+# Environment / secrets
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+.docker/
+
+# ---------------------------------------------------------------------------
+# Build outputs
+# ---------------------------------------------------------------------------
+dist/
+build/
+out/
+coverage/
+*.log
+*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# VS Code — keep shared config, ignore per-user files
+# (mcp.json, settings.json, extensions.json are committed; launch.json is not)
+# ---------------------------------------------------------------------------
+.vscode/launch.json
+.vscode/*.code-workspace
+.history/
+
+# ---------------------------------------------------------------------------
+# JetBrains
+# ---------------------------------------------------------------------------
+.idea/
+
+# ---------------------------------------------------------------------------
+# OS junk
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Editor backup files
+# ---------------------------------------------------------------------------
+*~
+*.swp
+*.swo
+*.bak
+
+
+# APM dependencies
+apm_modules/

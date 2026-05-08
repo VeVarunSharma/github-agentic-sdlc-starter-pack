@@ -1,0 +1,9 @@
+# CODEOWNERS — defines default reviewers for pull requests.
+# See: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Replace <owner>/<team> with your org's review team before enabling required reviews.
+* @<owner>/<team>
+
+@VeVarunSharma
+
+/.github/ @VeVarunSharma

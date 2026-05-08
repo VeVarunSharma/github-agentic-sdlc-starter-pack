@@ -1,0 +1,14 @@
+# Default: let Git decide text vs binary, normalize to LF on checkin.
+* text=auto eol=lf
+
+# Always LF for shell scripts so they remain executable on POSIX systems.
+*.sh text eol=lf
+
+# Generated / managed files — suppress in diffs and exclude from language stats.
+# Note: `.github/copilot-instructions.md` is HAND-AUTHORED in this repo (it is the
+# primary entry point for agents) and intentionally NOT marked generated. The
+# `apm-audit.yml` workflow runs `apm install --target copilot` + `apm audit` only
+# — it never runs `apm compile -t copilot`, which would overwrite the hand-authored
+# file. See `docs/apm-ownership-model.md`.
+apm.lock.yaml linguist-generated=true
+package-lock.json linguist-generated=true

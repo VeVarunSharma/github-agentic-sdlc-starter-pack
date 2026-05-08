@@ -1,0 +1,87 @@
+name: Spec — agent-ready
+description: Open a structured spec the Copilot coding agent (or a human) can implement end-to-end.
+title: "[spec] "
+labels:
+  - spec
+  - agent-task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to open a unit of work that an AI agent (or a
+        focused human) can pick up and ship. Aim for one PR's worth of
+        scope — split larger work into multiple specs that link to a
+        tracking issue.
+
+        If you want the Copilot coding agent to pick this up
+        automatically, leave the `agent-task` label and set the repo
+        variable `COPILOT_AUTO_ASSIGN=true` (see
+        `.github/workflows/copilot-auto-assign.yml`).
+
+  - type: textarea
+    id: intent
+    attributes:
+      label: Intent
+      description: One paragraph. What user problem does this solve, and why now?
+      placeholder: When a developer X, they currently Y. We want them to Z so that …
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A checkable list of behaviours that must hold once this is done. Phrase each as a verifiable statement.
+      value: |
+        - [ ] 
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: List the things this issue will NOT do. Useful for keeping scope tight.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant context (links + files)
+      description: Point the agent at the docs, prior art, and files it should read first.
+      value: |
+        - `.github/copilot-instructions.md`
+        - `.github/instructions/<applicable>.instructions.md`
+        - `docs/agentic-sdlc.md`
+        - <link to design doc / RFC / earlier PR>
+
+  - type: textarea
+    id: implementation-hints
+    attributes:
+      label: Implementation hints (optional)
+      description: If you have a strong preference for which files / patterns the agent should use, drop it here. The agent is free to disagree if it has good reason.
+
+  - type: dropdown
+    id: workload
+    attributes:
+      label: Touches
+      multiple: true
+      options:
+        - app/ (Node.js sample)
+        - infra/bootstrap/
+        - infra/app/
+        - .github/ (workflows / primitives)
+        - docs/
+        - examples/
+        - scripts/
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and PRs for duplicates.
+          required: true
+        - label: I am happy for an AI agent to pick this up.
+          required: false

@@ -1,0 +1,13 @@
+{
+  "name": "agentic-sdlc-swa-api",
+  "version": "1.0.0",
+  "description": "Managed Azure Functions API co-deployed with the Static Web Apps SPA example.",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "**/index.js",
+  "scripts": {
+    "start": "func start"
+  }
+}

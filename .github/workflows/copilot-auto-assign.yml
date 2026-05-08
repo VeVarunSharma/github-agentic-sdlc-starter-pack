@@ -1,0 +1,110 @@
+# Copilot auto-assign — Opt-in Spike B flow
+#
+# When an issue is labelled `copilot` (or opened with the
+# `agent-spec` template, which auto-applies that label), this
+# workflow assigns the GitHub Copilot coding agent as the issue's
+# assignee. Copilot then picks up the issue, drafts a PR on a
+# `agent/<issue>-<desc>` branch, and runs through the SDLC loop.
+#
+# This is OPT-IN. To enable it, set repo variable
+# `COPILOT_AUTO_ASSIGN=true` in Settings -> Secrets and variables
+# -> Actions -> Variables. The default is off so the workflow exists
+# in the repo but does nothing — orgs can enable it per-repo without
+# editing files.
+#
+# Why opt-in:
+#   * Some orgs prefer manual triage of which issues Copilot picks
+#     up. Auto-assigning every labelled issue can flood the agent
+#     queue.
+#   * The GraphQL mutation uses preview headers; the API surface
+#     could shift. Keeping it opt-in limits blast radius if it does.
+#
+# Required permissions on the org / enterprise:
+#   * Copilot coding agent must be ENABLED for the org/repo.
+#   * The `GITHUB_TOKEN` provided to this workflow has enough scope
+#     to mutate issue assignees because of `permissions:` below.
+
+name: Copilot Auto-Assign
+
+on:
+  issues:
+    types: [opened, labeled, reopened]
+
+permissions:
+  issues: write       # to assign the issue
+  contents: read
+
+jobs:
+  assign:
+    name: Assign Copilot to issue
+    runs-on: ubuntu-latest
+    if: |
+      vars.COPILOT_AUTO_ASSIGN == 'true' &&
+      (
+        contains(github.event.issue.labels.*.name, 'copilot') ||
+        contains(github.event.issue.labels.*.name, 'agent-task')
+      )
+    steps:
+      - name: Resolve copilot-swe-agent node ID
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # shellcheck disable=SC2016
+          # The `$login` token below is a GraphQL variable, not a shell
+          # variable, so single quotes are intentional.
+          # The Copilot coding agent is exposed as a "Bot" actor
+          # named `copilot-swe-agent`. Its node ID is required for
+          # the addAssigneesToAssignable mutation. Spike B documented
+          # this lookup; the result is stable per-installation.
+          set -euo pipefail
+          # shellcheck disable=SC2016
+          node_id="$(
+            gh api graphql \
+              -f query='
+                query($login: String!) {
+                  user(login: $login) { id }
+                }' \
+              -f login='copilot-swe-agent' \
+              --jq '.data.user.id'
+          )"
+          if [ -z "${node_id}" ] || [ "${node_id}" = "null" ]; then
+            echo "::warning::copilot-swe-agent not found. Is Copilot coding agent enabled on this repo?"
+            exit 0
+          fi
+          echo "node_id=${node_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Assign Copilot to the issue
+        if: steps.resolve.outputs.node_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NODE_ID: ${{ github.event.issue.node_id }}
+          ASSIGNEE_NODE_ID: ${{ steps.resolve.outputs.node_id }}
+        # shellcheck disable=SC2016
+        run: |
+          # shellcheck disable=SC2016
+          # The `$assignableId` / `$assigneeIds` tokens below are GraphQL
+          # variables, not shell variables — single quotes are intentional.
+          gh api graphql \
+            -f query='
+              mutation($assignableId: ID!, $assigneeIds: [ID!]!) {
+                addAssigneesToAssignable(input: {
+                  assignableId: $assignableId,
+                  assigneeIds: $assigneeIds
+                }) {
+                  assignable {
+                    ... on Issue { number }
+                  }
+                }
+              }' \
+            -f assignableId="${ISSUE_NODE_ID}" \
+            -F assigneeIds="${ASSIGNEE_NODE_ID}"
+
+      - name: Comment on the issue
+        if: steps.resolve.outputs.node_id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "🤖 GitHub Copilot has been assigned to this issue. The agent will read \`.github/copilot-instructions.md\` plus any matching \`.github/instructions/**\` and open a draft PR shortly."

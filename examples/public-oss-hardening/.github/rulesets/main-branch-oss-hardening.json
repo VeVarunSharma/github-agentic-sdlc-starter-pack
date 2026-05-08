@@ -1,0 +1,68 @@
+{
+  "_comment": "Branch ruleset — OSS-hardening overlay. Replaces main-branch-enforce.json for public OSS repos.",
+  "_doc": [
+    "Strictest setting in the repo. Apply ONLY after:",
+    "  * `dco.yml` and `scorecard.yml` from this overlay are merged to main",
+    "  * Every required check below has appeared on at least one PR",
+    "  * Maintainers understand the signed-commits trade-off — the GitHub",
+    "    Copilot coding agent does not sign its commits. PRs from the agent",
+    "    must be squash-merged from a maintainer's signed-commit terminal,",
+    "    not from the agent's own merge flow.",
+    "",
+    "Differences from baseline main-branch-enforce.json:",
+    "  * `required_signatures` rule added (signed commits required)",
+    "  * `dco — verify sign-off` added as a required status check",
+    "  * `Scorecard analysis` added as a required status check",
+    "  * `required_approving_review_count` bumped to 2 (community-PR posture)",
+    "",
+    "To import (after deleting the baseline enforce ruleset):",
+    "  gh api -X POST /repos/<owner>/<repo>/rulesets \\",
+    "    --input .github/rulesets/main-branch-oss-hardening.json"
+  ],
+  "name": "main — OSS hardening",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
+    { "type": "required_signatures" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 2,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true,
+        "automatic_copilot_code_review_enabled": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": true,
+        "required_status_checks": [
+          { "context": "app — lint + tests" },
+          { "context": "terraform — fmt + validate (infra/bootstrap)" },
+          { "context": "terraform — fmt + validate (infra/app)" },
+          { "context": "docker — build sample app image (smoke)" },
+          { "context": "Analyze (javascript-typescript)" },
+          { "context": "apm install + audit" },
+          { "context": "Review dependency changes" },
+          { "context": "dco — verify sign-off" },
+          { "context": "Scorecard analysis" }
+        ]
+      }
+    }
+  ]
+}

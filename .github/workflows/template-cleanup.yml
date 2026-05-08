@@ -1,0 +1,239 @@
+# Template cleanup
+#
+# Purpose:
+#   When a consumer creates a new repo from this starter pack, they need to
+#   replace placeholders (<owner>/<repo>, <owner>/<team>, contact emails)
+#   across README, LICENSE, CODEOWNERS, app/package.json, terraform tfvars
+#   examples, etc. This workflow does that as a *PR* (not a direct push to
+#   main) so the consumer reviews the diff before adopting it.
+#
+# Design choices (see proof-plan):
+#   - Trigger is `workflow_dispatch` ONLY. We do NOT auto-run on first push,
+#     because (a) consumers may want to run it manually after wiring up
+#     team handles, and (b) auto-running on push to a protected main can
+#     conflict with branch rulesets.
+#   - Default `dry_run: true` so a curious user can see what would change
+#     before committing to it.
+#   - Recursion guard via marker file `.github/.template-cleanup-applied`.
+#     The PR opened by this workflow ADDS that marker; subsequent dispatches
+#     short-circuit. Delete the marker if you genuinely need to re-run.
+#   - Concurrency group prevents two operators racing each other.
+#
+# Locked-down org fallback:
+#   If your org policy forbids granting `contents: write` to GitHub Actions,
+#   you can run `scripts/template-cleanup.sh` locally (same logic) and open
+#   the PR by hand. The script is shipped alongside this workflow.
+
+name: Template cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: "New repo owner (replaces <owner>) — e.g. 'acme-corp'"
+        required: true
+        type: string
+      repo:
+        description: "New repo name (replaces <repo>) — e.g. 'platform-api'"
+        required: true
+        type: string
+      codeowner_team:
+        description: "Team handle for CODEOWNERS (e.g. '@acme-corp/platform-eng')"
+        required: true
+        type: string
+        default: "@<owner>/<team>"
+      security_contact:
+        description: "Email for <security-contact-email> and <contact-email>"
+        required: false
+        type: string
+        default: ""
+      dry_run:
+        description: "If true, only print the diff. If false, open a PR + welcome issue."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: template-cleanup
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    name: Apply template cleanup
+    runs-on: ubuntu-latest
+    env:
+      MARKER_FILE: .github/.template-cleanup-applied
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history so we can branch + push cleanly.
+          fetch-depth: 0
+
+      - name: Recursion guard
+        id: guard
+        run: |
+          if [ -f "$MARKER_FILE" ]; then
+            echo "Marker file '$MARKER_FILE' already exists — template cleanup has already been applied."
+            echo "If you genuinely need to re-run, delete the marker file in a separate PR first."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No marker file — proceeding with cleanup."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply replacements
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          NEW_OWNER: ${{ inputs.owner }}
+          NEW_REPO: ${{ inputs.repo }}
+          NEW_TEAM: ${{ inputs.codeowner_team }}
+          NEW_SECURITY: ${{ inputs.security_contact }}
+        run: |
+          set -euo pipefail
+
+          # Build the file list. We restrict to known text formats so we
+          # don't accidentally mangle a binary asset, and we exclude
+          # generated / vendored directories.
+          mapfile -d '' files < <(
+            find . \
+              \( -path './.git' -o -path './node_modules' -o -path '*/.terraform' -o -path './.github/.template-cleanup-applied' \) -prune \
+              -o -type f \( \
+                   -name '*.md' \
+                -o -name '*.json' \
+                -o -name '*.yml' \
+                -o -name '*.yaml' \
+                -o -name '*.tf' \
+                -o -name '*.tfvars.example' \
+                -o -name 'CODEOWNERS' \
+                -o -name 'LICENSE' \
+                -o -name 'SECURITY.md' \
+                -o -name 'CONTRIBUTING.md' \
+              \) -print0
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No candidate files found — nothing to do."
+            exit 0
+          fi
+
+          echo "Scanning ${#files[@]} files..."
+
+          # Note: GNU sed (-i without backup arg) is the default on
+          # ubuntu-latest. macOS BSD sed would need `-i ''`.
+          for f in "${files[@]}"; do
+            sed -i \
+              -e "s|<owner>/<repo>|${NEW_OWNER}/${NEW_REPO}|g" \
+              -e "s|<owner>/<team>|${NEW_TEAM#@}|g" \
+              -e "s|@<owner>/<team>|${NEW_TEAM}|g" \
+              -e "s|<owner>|${NEW_OWNER}|g" \
+              -e "s|<repo>|${NEW_REPO}|g" \
+              "$f"
+
+            if [ -n "${NEW_SECURITY}" ]; then
+              sed -i \
+                -e "s|<security-contact-email>|${NEW_SECURITY}|g" \
+                -e "s|<contact-email>|${NEW_SECURITY}|g" \
+                "$f"
+            fi
+          done
+
+          # Drop the recursion-guard marker. The PR opened below carries it.
+          mkdir -p .github
+          {
+            echo "# Template cleanup applied"
+            echo "# Run ID: ${{ github.run_id }}"
+            echo "# Actor:  ${{ github.actor }}"
+            echo "# Date:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$MARKER_FILE"
+
+      - name: Show diff (dry run summary)
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          echo "::group::git diff --stat"
+          git diff --stat || true
+          echo "::endgroup::"
+          echo "::group::git diff (first 200 lines)"
+          git diff | head -200 || true
+          echo "::endgroup::"
+
+      - name: Exit early on dry run
+        if: steps.guard.outputs.skip != 'true' && inputs.dry_run == true
+        run: |
+          echo "dry_run=true — no PR or issue will be created."
+          echo "Re-run with dry_run=false to open the cleanup PR."
+
+      - name: Open cleanup PR + welcome issue
+        if: steps.guard.outputs.skip != 'true' && inputs.dry_run == false
+        env:
+          NEW_OWNER: ${{ inputs.owner }}
+          NEW_REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="template-cleanup/${{ github.run_id }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No changes detected after replacement — nothing to commit."
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: apply template cleanup"
+          git push --set-upstream origin "$BRANCH"
+
+          PR_BODY=$(cat <<'EOF'
+          This PR was opened automatically by the **Template cleanup** workflow.
+
+          ### What changed
+          - Replaced `<owner>/<repo>` with the supplied owner/repo
+          - Replaced `<owner>/<team>` / `@<owner>/<team>` with the supplied CODEOWNERS team
+          - Replaced `<security-contact-email>` and `<contact-email>` with the supplied address (if provided)
+          - Added marker file `.github/.template-cleanup-applied` so this workflow won't run again
+
+          ### Reviewer checklist before merging
+          - [ ] Confirm no over-replacements (e.g. inside code comments that intentionally referenced the placeholder)
+          - [ ] CODEOWNERS team handle is correct
+          - [ ] LICENSE copyright line looks right
+          - [ ] `app/package.json` `name` / `repository` fields look right
+
+          ### After merging — see the companion **Welcome — next steps** issue
+          EOF
+          )
+
+          gh pr create \
+            --title "Template cleanup applied" \
+            --body  "$PR_BODY" \
+            --base  "${{ github.event.repository.default_branch }}" \
+            --head  "$BRANCH"
+
+          ISSUE_BODY=$(cat <<EOF
+          Welcome! You created this repo from the **GitHub Agentic SDLC Starter Pack**. A few one-time setup tasks remain.
+
+          - [ ] Review and merge the **Template cleanup applied** PR
+          - [ ] Update \`CODEOWNERS\` with your real team handle if the cleanup didn't get it exactly right
+          - [ ] Run \`scripts/setup-azure-oidc.sh\` to provision the Azure deploy identity (federated credentials)
+          - [ ] Configure repo settings per \`docs/repo-settings-checklist.md\` (environments, required reviewers, secrets)
+          - [ ] Enable **Copilot code review** in repo settings
+          - [ ] Enable **secret scanning** + **push protection** (GHAS)
+          - [ ] Import the branch ruleset:
+                \`\`\`
+                gh api --method POST /repos/${NEW_OWNER}/${NEW_REPO}/rulesets --input .github/rulesets/main-branch-evaluate.json
+                \`\`\`
+          - [ ] Review and adopt examples from \`/examples\` per your maturity (see \`docs/enterprise-hardening.md\`)
+          EOF
+          )
+
+          gh issue create \
+            --title "Welcome — next steps" \
+            --body  "$ISSUE_BODY" \
+            --label "documentation"

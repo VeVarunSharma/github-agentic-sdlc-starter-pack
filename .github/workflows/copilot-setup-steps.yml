@@ -1,0 +1,75 @@
+# Copilot setup steps — Cloud agent runtime preparation
+#
+# This workflow is read by GitHub Copilot's coding-agent runtime
+# every time it spins up a sandbox for this repo. It runs BEFORE
+# Copilot starts its task and is the only place to install tools,
+# warm caches, or set environment variables that Copilot will need.
+#
+# CRITICAL contract (Spike E):
+#   * The job name MUST be `copilot-setup-steps`. The runtime looks
+#     up the job by exact name. Renaming it disables the setup.
+#   * The workflow file MUST live on the repo's default branch — it
+#     is read from the default branch, not the working ref.
+#   * Only `ubuntu-*` and `windows-*` runners are honoured. macOS is
+#     not currently supported by the runtime.
+#   * `permissions:` is the agent's permission set INSIDE the
+#     sandbox. Keep it minimal.
+#
+# What the steps below do:
+#   1. Install Node 22 (the version `app/` requires).
+#   2. Install Terraform (so Copilot can `terraform fmt/validate`
+#      when iterating on `infra/`).
+#   3. Install the APM CLI at the pinned version so Copilot can read
+#      `apm.yml`, run `apm install`, and `apm audit`.
+#   4. Pre-warm `app/node_modules` so the agent doesn't burn its
+#      first minute on `npm ci`.
+#
+# Tip: this file does NOT need to be triggered by a normal `on:`
+# event — Copilot reads it directly. The `workflow_dispatch` entry
+# below exists so humans can run the setup steps manually to verify
+# them.
+
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  copilot-setup-steps:
+    name: copilot-setup-steps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+
+      - name: Install APM CLI (pinned)
+        run: |
+          curl -sSL https://aka.ms/apm-unix | sh
+          echo "$HOME/.apm/bin" >> "$GITHUB_PATH"
+
+      - name: Pre-warm app/ dependencies
+        working-directory: app
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Verify toolchain
+        run: |
+          node --version
+          npm --version
+          terraform version
+          apm --version

@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/<owner>/<repo>/discussions
+    about: Open-ended questions, ideas, show-and-tell. Faster signal than an issue for "how do I…?".
+  - name: 🛡️ Security advisory (private)
+    url: https://github.com/<owner>/<repo>/security/advisories/new
+    about: Report a vulnerability privately via GitHub Private Vulnerability Reporting. Do NOT open a public issue for security findings.
+  - name: 📚 Microsoft Learn
+    url: https://learn.microsoft.com/azure/app-service/
+    about: Azure App Service / OIDC reference docs.
+  - name: 🤖 GitHub Copilot docs
+    url: https://docs.github.com/copilot
+    about: Copilot coding agent, chat, instructions, MCP.

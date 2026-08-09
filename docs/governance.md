@@ -39,14 +39,16 @@ unmanaged_files:
 
 On every PR, [`apm-audit.yml`](../.github/workflows/apm-audit.yml) runs:
 
-1. `apm install --frozen --target copilot` — resolves dependencies against
-   `apm.yml` and `apm.lock.yaml`. The `--frozen` flag exits non-zero if the
-   lockfile is out of sync with the manifest (drift detection without
-   re-downloading). APM-managed files must match the locked resolution.
-2. `apm audit --ci --policy ./apm-policy.yml --format sarif --output apm-audit.sarif`
+1. `apm install --target copilot` — restores the dependency cache in a clean
+   runner. The workflow fails if this changes any committed files.
+2. `apm install --frozen --target copilot` — replays the cached resolution.
+   The `--frozen` flag exits non-zero if the lockfile is out of sync with the
+   manifest. APM-managed files must match the locked resolution.
+3. `apm audit --ci --policy ./apm-policy.yml --format sarif --output apm-audit.sarif`
    — applies the policy and emits a SARIF file at the specified path.
-3. `github/codeql-action/upload-sarif@v3` — uploads the SARIF so findings
-   appear in the **Security** tab.
+4. `github/codeql-action/upload-sarif` pinned to v4.37.6's immutable commit
+   (`5595ccaf912efad79be6eef63a5619ff05969be3`) — uploads the SARIF so
+   findings appear in the **Security** tab.
 
 It does **not** run `apm compile -t copilot` because that would clobber
 the hand-authored `.github/copilot-instructions.md`. See

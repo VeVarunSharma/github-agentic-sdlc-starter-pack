@@ -1,10 +1,12 @@
 # APM audit — Drift + policy check
 #
 # What it gates:
-#   1. `apm install --frozen --target copilot` — replays the lockfile
-#      in the fresh runner environment so audit can replay the locked
-#      install without refetching dependencies.
-#   2. `apm audit --ci --policy ./apm-policy.yml` — enforces the
+#   1. `apm install --target copilot` — restores the dependency cache
+#      in the fresh runner and verifies that doing so does not change
+#      committed APM-managed files.
+#   2. `apm install --frozen --target copilot` — replays the now-local
+#      lockfile without refetching dependencies.
+#   3. `apm audit --ci --policy ./apm-policy.yml` — enforces the
 #      governance policy (allow-list, MCP transports, signature
 #      checks, unmanaged-files action) and performs drift detection by
 #      default. SARIF findings are uploaded to the Security tab so
@@ -56,9 +58,16 @@ jobs:
           APM_VERSION="${APM_VERSION}" APM_BIN_DIR="${RUNNER_TEMP}/bin" ./scripts/install-apm.sh
           echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
 
-      # Prime the local dependency cache in this fresh runner before
-      # the audit step replays the install for policy + drift checks.
-      - name: apm install
+      - name: Prime APM dependency cache
+        run: |
+          apm install --target copilot
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git status --short
+            echo "::error::apm install changed committed files. Run apm install locally and commit the generated results."
+            exit 1
+          fi
+
+      - name: Validate frozen lock replay
         run: apm install --frozen --target copilot
 
       - name: apm audit

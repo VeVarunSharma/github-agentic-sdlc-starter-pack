@@ -182,7 +182,8 @@ elif ! command -v apm >/dev/null 2>&1; then
   warn "Skipping APM audit — 'apm' CLI not on PATH (install: https://github.com/microsoft/apm)"
   SKIPS=$((SKIPS + 1))
 else
-  if apm install --frozen --target copilot &&
+  if apm install --target copilot &&
+     apm install --frozen --target copilot &&
      apm audit --ci --policy ./apm-policy.yml; then
     ok "APM audit clean"
   else

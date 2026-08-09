@@ -22,6 +22,7 @@ done
 
 ROOT="${DOCTOR_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 REQUIRED_TOOLS="${DOCTOR_REQUIRED_TOOLS-git node npm terraform apm docker}"
+CLOUD_VARIABLES="${DOCTOR_CLOUD_VARIABLES-AZURE_PLAN_CLIENT_ID AZURE_APPLY_CLIENT_ID AZURE_DEPLOY_CLIENT_ID AZURE_DEPLOY_PRINCIPAL_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP AZURE_TFSTATE_RG AZURE_TFSTATE_STORAGE_ACCOUNT AZURE_TFSTATE_CONTAINER AZURE_ACR_NAME AZURE_WEBAPP_NAME AZURE_LOCATION AZURE_REGION_SHORT AZURE_ENVIRONMENT AZURE_WORKLOAD_NAME AZURE_OIDC_SUBJECT_MODE}"
 failures=0
 warnings=0
 
@@ -101,7 +102,7 @@ if [[ "${CLOUD}" == "true" ]]; then
       report_problem "cannot resolve GitHub repository"
     else
       variables="$(gh variable list -R "${repo}" --json name --jq '.[].name' 2>/dev/null || true)"
-      for required in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+      for required in ${CLOUD_VARIABLES}; do
         if printf '%s\n' "${variables}" | grep -qx "${required}"; then
           pass "repository variable ${required}"
         else

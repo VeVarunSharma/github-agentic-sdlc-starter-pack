@@ -361,6 +361,126 @@ function checkActions(root, errors) {
   }
 }
 
+const REQUIRED_CHECK_JOBS = [
+  ['.github/workflows/ci.yml', 'app-lint-test'],
+  ['.github/workflows/ci.yml', 'terraform-fmt-validate'],
+  ['.github/workflows/ci.yml', 'docker-build'],
+  ['.github/workflows/ci.yml', 'repository-validation'],
+  ['.github/workflows/codeql.yml', 'analyze'],
+  ['.github/workflows/apm-audit.yml', 'audit'],
+  ['.github/workflows/dependency-review.yml', 'dependency-review'],
+];
+
+function matrixValues(jobBlock, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const inline = jobBlock.match(new RegExp(`^\\s{8}${escaped}:\\s*\\[([^\\]]+)]\\s*$`, 'm'));
+  if (inline) {
+    return inline[1]
+      .split(',')
+      .map((value) => value.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+  }
+  const lines = jobBlock.split('\n');
+  const start = lines.findIndex((line) => new RegExp(`^\\s{8}${escaped}:\\s*$`).test(line));
+  if (start === -1) return [];
+  const values = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = line.match(/^\s{10}-\s+(.+?)\s*$/);
+    if (!match) break;
+    values.push(match[1].replace(/^['"]|['"]$/g, ''));
+  }
+  return values;
+}
+
+export function requiredCheckNames(root, errors = []) {
+  const names = [];
+  for (const [workflow, jobId] of REQUIRED_CHECK_JOBS) {
+    const path = join(root, workflow);
+    if (!existsSync(path)) {
+      errors.push(`${workflow}: workflow is missing`);
+      continue;
+    }
+    const source = text(path);
+    const escapedJob = jobId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const blockMatch = source.match(
+      new RegExp(`^  ${escapedJob}:\\n((?:^(?!  \\S).*(?:\\n|$))*)`, 'm'),
+    );
+    if (!blockMatch) {
+      errors.push(`${workflow}: job ${jobId} is missing`);
+      continue;
+    }
+    const jobBlock = blockMatch[1];
+    const nameMatch = jobBlock.match(/^\s{4}name:\s*(.+)$/m);
+    if (!nameMatch) {
+      errors.push(`${workflow}: job ${jobId} display name is missing`);
+      continue;
+    }
+    const template = nameMatch[1].trim().replace(/^['"]|['"]$/g, '');
+    const placeholder = template.match(/\$\{\{\s*matrix\.([a-zA-Z0-9_-]+)\s*}}/);
+    if (!placeholder) {
+      names.push(template);
+      continue;
+    }
+    const values = matrixValues(jobBlock, placeholder[1]);
+    if (values.length === 0) {
+      errors.push(`${workflow}: job ${jobId} matrix ${placeholder[1]} has no values`);
+      continue;
+    }
+    for (const value of values) {
+      names.push(template.replace(placeholder[0], value));
+    }
+  }
+  return names;
+}
+
+export function checkRequiredCheckContracts(root, errors) {
+  const expected = requiredCheckNames(root, errors);
+  if (expected.length === 0) return;
+  for (const ruleset of [
+    '.github/rulesets/main-branch-evaluate.json',
+    '.github/rulesets/main-branch-enforce.json',
+  ]) {
+    const path = join(root, ruleset);
+    if (!existsSync(path)) {
+      errors.push(`${ruleset}: ruleset is missing`);
+      continue;
+    }
+    let config;
+    try {
+      config = JSON.parse(text(path));
+    } catch (error) {
+      errors.push(`${ruleset}: invalid JSON (${error.message})`);
+      continue;
+    }
+    const contexts = (config.rules ?? [])
+      .filter((rule) => rule.type === 'required_status_checks')
+      .flatMap((rule) => rule.parameters?.required_status_checks ?? [])
+      .map((check) => check.context);
+    for (const displayName of expected) {
+      if (!contexts.includes(displayName)) {
+        errors.push(`${ruleset}: missing required check "${displayName}"`);
+      }
+    }
+    for (const context of contexts) {
+      if (!expected.includes(context)) {
+        errors.push(`${ruleset}: unexpected required check "${context}"`);
+      }
+    }
+  }
+  for (const doc of [
+    '.github/rulesets/README.md',
+    'docs/repo-settings-checklist.md',
+  ]) {
+    const path = join(root, doc);
+    const source = existsSync(path) ? text(path) : '';
+    for (const displayName of expected) {
+      if (!source.includes(`\`${displayName}\``)) {
+        errors.push(`${doc}: missing required check documentation for "${displayName}"`);
+      }
+    }
+  }
+}
+
 function checkApm(root, errors) {
   const lock = text(join(root, 'apm.lock.yaml'));
   for (const removed of [
@@ -405,6 +525,7 @@ export function validateRepository(root) {
   checkHooks(root, errors);
   checkMcp(root, errors);
   checkActions(root, errors);
+  checkRequiredCheckContracts(root, errors);
   checkApm(root, errors);
   checkStructures(root, errors);
   return errors;

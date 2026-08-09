@@ -14,6 +14,23 @@ printf '%s\n' "${output}" | jq -e 'type == "object" and length == 0' >/dev/null
 output="$("${HOOK}" < "${FIXTURES}/relevant.json")"
 printf '%s\n' "${output}" | jq -e 'type == "object" and length == 0' >/dev/null
 
+invalid_root="$(mktemp -d "${TMPDIR:-/tmp}/hook-invalid.XXXXXX")"
+trap 'rm -rf "${invalid_root}"' EXIT
+
+output="$(HARNESS_ROOT="${invalid_root}" "${HOOK}" <<EOF
+{"sessionId":"fixture","timestamp":0,"cwd":"${ROOT}","toolName":"apply_patch","toolArgs":{"path":"${ROOT}/docs/README.md"},"toolResult":{"resultType":"success","textResultForLlm":"ok"}}
+EOF
+)"
+printf '%s\n' "${output}" |
+  jq -e '.additionalContext | contains("Deterministic agent harness validation failed")' >/dev/null
+
+output="$(HARNESS_ROOT="${invalid_root}" "${HOOK}" <<EOF
+{"sessionId":"fixture","timestamp":0,"cwd":"${ROOT}","transcriptPath":"/tmp/transcript.jsonl","stopReason":"end_turn","stop_hook_active":false}
+EOF
+)"
+printf '%s\n' "${output}" |
+  jq -e '.decision == "block" and (.reason | contains("Deterministic agent harness validation failed"))' >/dev/null
+
 set +e
 output="$("${HOOK}" < "${FIXTURES}/malformed.json")"
 status=$?

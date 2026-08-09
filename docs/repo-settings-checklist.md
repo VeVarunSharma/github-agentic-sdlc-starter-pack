@@ -75,7 +75,7 @@ Required-check names (must match exactly, case-sensitive):
 | `terraform — fmt + validate (infra/bootstrap)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (examples/azure-container-apps/infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
-| `docker — build + health smoke` | `ci.yml` → `docker-build` |
+| `docker — lint + scan + health smoke` | `ci.yml` → `docker-build` |
 | `repository — workflows + shell + JSON + lockfiles` | `ci.yml` → `repository-validation` |
 | `Analyze (javascript-typescript)` | `codeql.yml` → `analyze` (matrix) |
 | `apm install + audit` | `apm-audit.yml` → `audit` |
@@ -120,10 +120,16 @@ and confirming the right reviewers are auto-requested.
 | `AZURE_ENVIRONMENT` | setup script | `dev`, `test`, `staging`, or `prod` |
 | `AZURE_WORKLOAD_NAME` | setup script | Lowercase naming segment |
 | `AZURE_OIDC_SUBJECT_MODE` | setup script | `immutable` by default; explicit `legacy` compatibility mode |
+| `AZURE_STAGING_SLOT_ENABLED` | operator (optional) | Set `true` only after applying `infra/app` with an S1+ plan; default is direct B1 deployment |
+| `AZURE_STAGING_SLOT_NAME` | operator (optional) | Slot name, normally `staging`; required when slot deployment is enabled |
 
 Variables (not secrets) is intentional — these IDs are not credentials.
 Exact environment trust plus the corresponding identity's scoped Azure roles
 form the security boundary. See
+[`azure-oidc-setup.md`](./azure-oidc-setup.md).
+
+The optional slot variables are deliberately not created by the baseline setup
+script because B1 does not support deployment slots. See the slot runbook in
 [`azure-oidc-setup.md`](./azure-oidc-setup.md).
 
 ## 7 — Optional: Copilot auto-assign

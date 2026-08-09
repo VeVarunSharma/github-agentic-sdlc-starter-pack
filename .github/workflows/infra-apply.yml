@@ -75,6 +75,8 @@ jobs:
             -var="environment=${{ vars.AZURE_ENVIRONMENT }}" \
             -var="region_short=${{ vars.AZURE_REGION_SHORT }}" \
             -var="resource_group_name=${{ vars.AZURE_RESOURCE_GROUP }}" \
+            -var="staging_slot_enabled=${{ vars.AZURE_STAGING_SLOT_ENABLED || 'false' }}" \
+            -var="staging_slot_name=${{ vars.AZURE_STAGING_SLOT_NAME || 'staging' }}" \
             -var="web_app_name=${{ vars.AZURE_WEBAPP_NAME }}" \
             -var="workload_name=${{ vars.AZURE_WORKLOAD_NAME }}"
 
@@ -198,5 +200,12 @@ jobs:
               value="$(terraform output -raw "${key}")"
               safe_value="$(printf '%s' "${value}" | escape_html)"
               printf -- '- **%s:** <code>%s</code>\n' "${key}" "${safe_value}"
+            done
+            for key in staging_slot_name staging_slot_hostname; do
+              value="$(terraform output -raw "${key}")"
+              if [[ -n "${value}" ]]; then
+                safe_value="$(printf '%s' "${value}" | escape_html)"
+                printf -- '- **%s:** <code>%s</code>\n' "${key}" "${safe_value}"
+              fi
             done
           } >> "${GITHUB_STEP_SUMMARY}"

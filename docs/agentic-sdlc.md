@@ -100,9 +100,11 @@ Required, even for agent-authored PRs. The reviewer:
 push to `main` with `environment: production`. It exchanges the
 workflow's OIDC token for an Azure access token using a federated
 credential pinned to the exact immutable repository + `production`
-environment subject. Then it builds, pushes
-the image to ACR, and updates the Web App. **No client secret stored in
-GitHub.**
+environment subject. Then it builds and pushes the image with OCI SBOM/provenance attestations,
+retains a SHA inventory tag, and deploys the pushed digest. The default B1
+path restores the exact prior `linuxFxVersion` if verification or `/health`
+fails. An opt-in S1+ staging-slot path warms before swap and swaps back when
+production fails. **No client secret is stored in GitHub.**
 
 If the PR also touched `infra/app/**`, the operator runs
 `infra-apply.yml` first against the `infra-apply` environment (which

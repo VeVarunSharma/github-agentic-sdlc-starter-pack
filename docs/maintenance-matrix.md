@@ -15,6 +15,7 @@ gone stale.
 | Quarterly | Refresh `docs/upstream-sources.md` "last verified" SHAs | DevEx / platform team | Manual |
 | Quarterly | Review `apm-policy.yml` allowlist for new orgs | DevEx / platform team | Manual |
 | Quarterly | Review hand-authored `.github/` primitives — still relevant? | Repo owner | Manual |
+| Monthly | Refresh pinned Node base digest and rerun fixed HIGH/CRITICAL Trivy policy | App + DevEx teams | Dependabot/base release or scanner finding |
 | Annually | Refresh `infra/bootstrap/` — Terraform, provider, AzureRM versions | DevEx / platform team | Manual |
 | Annually | Re-bootstrap OIDC federated credentials if rotated subjects (e.g. repo rename) | Repo owner | Manual or via `oidc-rotation` skill |
 | Annually | Review the `enterprise-hardening.md` overlay against current GHAS feature set | DevEx / platform team | Manual |
@@ -29,6 +30,7 @@ How each kind of drift surfaces:
 | `apm.lock.yaml` out of sync with `apm.yml` | `apm-audit.yml` PR check | Audit job fails with "lockfile out of date" |
 | Hand-authored file added under `.github/` | `apm-audit.yml` PR check | Warning only ("unmanaged file"), tolerated by `unmanaged_files.action: warn` |
 | Vulnerable npm dep introduced | `dependency-review.yml` PR check | Block on high/critical CVEs |
+| Fixed HIGH/CRITICAL container finding | `ci.yml` Trivy step | Docker required check fails; unfixed findings remain visible but non-blocking |
 | Vulnerable Action introduced | `dependency-review.yml` PR check | Same |
 | Terraform syntax broken | `ci.yml` `terraform-fmt-validate` matrix job | PR check fails |
 | Required check renamed without ruleset update | Branch protection rule evaluation | "Indefinite pending" — PR can't merge |
@@ -66,7 +68,7 @@ Repos following the baseline should expect:
 
 | Component | Bump signal |
 |-----------|-------------|
-| Node.js (sample app) | Each LTS cut (~April every 2 years). Update `app/package.json` `engines.node`, `Dockerfile` base image, devcontainer image. |
+| Node.js (sample app) | Each LTS cut or base security refresh. Update `app/package.json` `engines.node`, immutable Dockerfile digest, and devcontainer image. |
 | Terraform CLI | Each minor release; pin in `infra/*/versions.tf` |
 | AzureRM provider | Quarterly; coordinate with bootstrap apply |
 | APM CLI | When a breaking change is announced; update `scripts/install-apm.sh` `APM_VERSION` and `.github/workflows/apm-audit.yml`. The `apm_cli_version` field does NOT exist in `apm-policy.yml`; pin the CLI via `install-apm.sh`. |

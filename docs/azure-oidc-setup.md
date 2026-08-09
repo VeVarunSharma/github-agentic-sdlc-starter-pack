@@ -103,6 +103,57 @@ The public endpoint remains available for standard GitHub-hosted runners.
 Higher-assurance deployments should use fixed-egress or VNet-connected
 self-hosted runners, Storage network rules, and a private endpoint.
 
+## Digest deployment and rollback
+
+`azure-deploy.yml` keeps a human-readable commit-SHA tag for ACR inventory,
+but deploys the digest returned by `docker/build-push-action`. Before any
+production mutation it captures and validates the current
+`siteConfig.linuxFxVersion`.
+
+The default low-cost flow:
+
+1. set production to `<acr>/<image>@sha256:<digest>`;
+2. restart and verify the resulting `linuxFxVersion`;
+3. probe `/health`;
+4. on failure, restore the exact captured image, restart, and verify rollback
+   health; the workflow remains failed and never emits a deployed summary.
+
+For manual recovery, copy the exact known-good image from App Service
+configuration and run:
+
+```bash
+az webapp config container set \
+  --resource-group "$AZURE_RESOURCE_GROUP" \
+  --name "$AZURE_WEBAPP_NAME" \
+  --container-image-name "<registry>/<image>@sha256:<digest>"
+az webapp restart \
+  --resource-group "$AZURE_RESOURCE_GROUP" \
+  --name "$AZURE_WEBAPP_NAME"
+./scripts/smoke-health.sh "https://<web-app-hostname>/health"
+```
+
+Do not replace a known-good digest with a floating tag during incident
+recovery.
+
+## Optional S1+ staging slot
+
+Slots are disabled by default because F1 and B1-B3 do not support them. To opt
+in:
+
+1. choose Standard S1 or higher in `infra/app`;
+2. set Terraform `staging_slot_enabled=true` and optionally
+   `staging_slot_name`;
+3. run the approval-gated `Infra Apply` workflow;
+4. set repository variables `AZURE_STAGING_SLOT_ENABLED=true` and
+   `AZURE_STAGING_SLOT_NAME=staging`.
+
+Terraform gives the slot its own system-assigned identity and exact-ACR
+`AcrPull` assignment because managed identities are slot-specific and are not
+swapped. The deploy workflow verifies both identities, role assignments,
+secure config, and selected app settings before warming staging. After swap,
+production `/health` must pass; otherwise the workflow swaps again and verifies
+the previous production image and health.
+
 ## Deterministic names and repo variables
 
 The script hashes the stable subscription/owner/repository IDs and uses the

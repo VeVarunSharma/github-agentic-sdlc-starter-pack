@@ -20,8 +20,8 @@ For a ready-to-apply OSS overlay see
 | GHAS Code Scanning | CodeQL via free tier (public) or GHAS (private) | Same | GHAS + multi-language + custom queries + autofix |
 | Required-deploy-env approvers | None on `production` (push to main) | Same | At least one human approver on `production` and `infra-apply` |
 | Container signing | None | Optional Cosign add-on | Required (Cosign + Sigstore + key-vault-backed key) |
-| SBOM | None | Optional Syft add-on | Required (CycloneDX or SPDX, generated per build, signed) |
-| Image digest pinning | Tag-based (commit SHA) | Same | Pin by digest in App Service config; rebuild if base image changes |
+| SBOM + provenance | BuildKit OCI attestations on every pushed image | Same | Retain/export, sign, and enforce verification policy |
+| Image digest pinning | Deploy pushed OCI digest; retain SHA tag for inventory | Same | Digest allowlist + signature/attestation verification |
 | Tfstate encryption | Default Azure Storage encryption | Same | Customer-managed keys (CMK) in Key Vault |
 | Tfvars secrets | Read from env / not committed | Same | Stored in Key Vault, fetched at apply time via `azurerm_key_vault_secret` data sources |
 | Audit log export | GitHub Audit Log retention default (90 days for free) | Same | Stream to SIEM (Splunk, Sentinel) via Audit Log streaming |
@@ -71,26 +71,23 @@ resource "azurerm_storage_account_customer_managed_key" "tfstate" {
 
 Rotate the CMK on a documented cadence (e.g. annually).
 
-### SBOM + provenance
+### SBOM, provenance, and signatures
 
-Add to `azure-deploy.yml` after the `docker push`:
+The baseline already sets `provenance: mode=max` and `sbom: true` on
+`docker/build-push-action`, so ACR receives OCI attestations tied to the pushed
+digest. It also deploys that digest rather than its mutable tag.
+
+Regulated environments should add signature policy without introducing a
+long-lived repository secret. For example, use an organization-approved
+keyless Sigstore flow or a key backed by managed HSM/Key Vault, then verify the
+signature and attestations before deployment:
 
 ```yaml
-- uses: anchore/sbom-action@v0
-  with:
-    image: ${{ env.ACR_LOGIN_SERVER }}/${{ vars.AZURE_WEBAPP_NAME }}:${{ github.sha }}
-    format: cyclonedx-json
-    output-file: sbom.json
-- uses: actions/attest-sbom@v2
-  with:
-    subject-name: ${{ env.ACR_LOGIN_SERVER }}/${{ vars.AZURE_WEBAPP_NAME }}
-    subject-digest: ${{ steps.push.outputs.digest }}
-    sbom-path: sbom.json
-- uses: sigstore/cosign-installer@v3
-- run: cosign sign ${{ env.ACR_LOGIN_SERVER }}/${{ vars.AZURE_WEBAPP_NAME }}@${{ steps.push.outputs.digest }} --yes
+- uses: sigstore/cosign-installer@<full-commit-sha> # reviewed version
+- run: cosign sign "${IMAGE_REF}" --yes
 ```
 
-Verify on pull (e.g. via Azure Policy with the
+Pin every added action to a reviewed full commit SHA. Verify on pull (e.g. via Azure Policy with the
 `AllowedContainerImagesRegex` plus a Sigstore validating webhook).
 
 ## GHES (GitHub Enterprise Server) considerations

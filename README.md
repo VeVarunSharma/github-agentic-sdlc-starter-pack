@@ -32,6 +32,10 @@ primitive you'll want to extend. APM is layered on top as the optional
   Dependency Review, APM audit, and Terraform validate.
 - 🔁 **Closed-loop SDLC** — spec issue → Copilot agent → draft PR →
   gates → human review → squash-merge → OIDC deploy.
+- 🖥️ **Live control-plane showcase** — a responsive, accessible UI backed by
+  real `/health` and `/api/info` state, governed by root `DESIGN.md`.
+- 📦 **Immutable container delivery** — pinned base image, Hadolint + Trivy,
+  BuildKit SBOM/provenance, digest deployment, and health-verified rollback.
 
 ---
 
@@ -70,7 +74,8 @@ cd <repo>
 | [`.github/mcp/`](./.github/mcp/) | MCP server reference for the cloud agent |
 | [`.github/workflows/`](./.github/workflows/) | CI/CD, GHAS, APM audit, OIDC deploy |
 | [`.github/rulesets/`](./.github/rulesets/) | Branch protection as code |
-| [`app/`](./app/) | Node.js 22 + Express sample app |
+| [`app/`](./app/) | Node.js 22 + Express 5 showcase app and live APIs |
+| [`DESIGN.md`](./DESIGN.md) | Enforceable visual system for `app/public/**` |
 | [`infra/bootstrap/`](./infra/bootstrap/) | One-time Terraform — scoped OIDC identities + hardened tfstate |
 | [`infra/app/`](./infra/app/) | CI-applied Terraform — ACR, App Service, Log Analytics |
 | [`examples/`](./examples/) | Variants — Container Apps, Static Web Apps, OSS-hardening |
@@ -95,8 +100,9 @@ A guided walkthrough of every `.github/` primitive lives in
 4. **Human review** — branch protection requires at least one approving
    review. Squash-merge to `main`.
 5. **OIDC deploy** — the `production` identity exchanges a short-lived
-   exact-subject token for an Azure access token, builds + pushes the image
-   to ACR, and updates only the scoped App Service.
+   exact-subject token for an Azure access token, builds + pushes an attested
+   image to ACR, and updates only the scoped App Service by OCI digest. Failed
+   health checks restore the exact prior image.
 
 Full diagram + gate-by-gate breakdown:
 [`docs/agentic-sdlc.md`](./docs/agentic-sdlc.md).

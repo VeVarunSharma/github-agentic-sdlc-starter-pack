@@ -118,6 +118,13 @@ for tf_dir in infra/bootstrap infra/app examples/azure-container-apps/infra/app;
   else
     ERRORS=$((ERRORS + 1)); warn "${tf_dir}: validate failed"
   fi
+  if [[ "${tf_dir}" == "infra/app" ]]; then
+    if terraform -chdir="${tf_dir}" test -no-color >/dev/null; then
+      ok "${tf_dir}: Terraform tests pass"
+    else
+      ERRORS=$((ERRORS + 1)); warn "${tf_dir}: Terraform tests failed"
+    fi
+  fi
 done
 
 # ── Repository maintenance surfaces ──────────────────────────────────────────
@@ -145,7 +152,14 @@ info "${BOLD}Docker${RESET} (build + /health)"
 if command -v docker >/dev/null 2>&1; then
   image="agentic-sdlc-sample-app:local-verify"
   container="agentic-sdlc-verify-$$"
-  if docker build --quiet --tag "${image}" app >/dev/null &&
+  docker_build_args=()
+  if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
+    docker_build_args+=(--build-arg "NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}")
+  fi
+  if [[ -n "${NPM_CONFIG_REPLACE_REGISTRY_HOST:-}" ]]; then
+    docker_build_args+=(--build-arg "NPM_CONFIG_REPLACE_REGISTRY_HOST=${NPM_CONFIG_REPLACE_REGISTRY_HOST}")
+  fi
+  if docker build "${docker_build_args[@]}" --quiet --tag "${image}" app >/dev/null &&
      docker run --detach --rm --name "${container}" --publish 127.0.0.1::3000 "${image}" >/dev/null; then
     port="$(docker port "${container}" 3000/tcp | awk -F: 'NR == 1 { print $NF }')"
     healthy=false

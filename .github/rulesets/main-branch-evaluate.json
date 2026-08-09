@@ -48,7 +48,7 @@
           { "context": "terraform — fmt + validate (infra/bootstrap)" },
           { "context": "terraform — fmt + validate (infra/app)" },
           { "context": "terraform — fmt + validate (examples/azure-container-apps/infra/app)" },
-          { "context": "docker — build + health smoke" },
+          { "context": "docker — lint + scan + health smoke" },
           { "context": "repository — workflows + shell + JSON + lockfiles" },
           { "context": "Analyze (javascript-typescript)" },
           { "context": "apm install + audit" },

@@ -1,0 +1,14 @@
+{
+  "allowedMcpServers": [
+    {
+      "name": "AI Pilots Tooling (internal)",
+      "serverUrl": "https://mcp.example.internal/standards/pilots"
+    }
+  ],
+  "enabledPlugins": [
+    "sdlc-pilot-tools@enterprise-standards"
+  ],
+  "permissions": {
+    "model": "unmanaged"
+  }
+}

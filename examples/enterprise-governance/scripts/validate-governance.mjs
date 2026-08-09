@@ -217,9 +217,23 @@ if (msGen) {
 section('5. MCP safety');
 
 function checkMcpEntry(entry, listName, idx) {
+  // Entry must contain exactly one of: serverUrl, serverCommand, serverName.
+  // Per official docs, serverName-only matching is too broad — require serverUrl or serverCommand.
+  const hasServerUrl = !!entry.serverUrl;
+  const hasServerCommand = !!entry.serverCommand;
+  const hasServerName = !!entry.serverName;
+  const matcherCount = [hasServerUrl, hasServerCommand, hasServerName].filter(Boolean).length;
+
+  if (matcherCount === 0) {
+    fail(`${listName}[${idx}] has no matcher — must specify exactly one of serverUrl, serverCommand, serverName`);
+  } else if (matcherCount > 1) {
+    fail(`${listName}[${idx}] has multiple matchers — must specify exactly one of serverUrl, serverCommand, serverName`);
+  } else if (hasServerName && !hasServerUrl && !hasServerCommand) {
+    fail(`${listName}[${idx}] uses serverName-only matching — too broad; use serverUrl or serverCommand`);
+  }
   // No HTTP (must be HTTPS or local stdio command)
-  if (entry.url && entry.url.startsWith('http://')) {
-    fail(`${listName}[${idx}] uses http:// — must use https:// or a local command`);
+  if (entry.serverUrl && entry.serverUrl.startsWith('http://')) {
+    fail(`${listName}[${idx}] uses http:// in serverUrl — must use https:// for remote servers`);
   }
   // No "latest" in command args (supply-chain risk)
   if (entry.args) {
@@ -229,13 +243,9 @@ function checkMcpEntry(entry, listName, idx) {
       }
     }
   }
-  // Command-based entries must have args (not name-only)
-  if (entry.command && !entry.args) {
-    fail(`${listName}[${idx}] has command but no args — name-only command matcher is unsafe`);
-  }
-  // Must have url or command, not just a name
-  if (!entry.url && !entry.command) {
-    fail(`${listName}[${idx}] has no url or command — must specify a matcher`);
+  // serverCommand entries should have args for precision
+  if (hasServerCommand && !entry.args) {
+    fail(`${listName}[${idx}] has serverCommand without args — add args to pin exact package and version`);
   }
 }
 
@@ -301,8 +311,26 @@ for (const agentFile of AGENT_FILES) {
 
 section('8. Team mapping floor key validation');
 
-const FLOOR_KEYS = {
-  // nested path -> forbidden value pairs (team must NOT set these)
+// New shape: {"file.json": ["team-slug"]} — validate each referenced settings file.
+const NON_OVERRIDABLE_KEYS = new Set([
+  'permissions.disableBypassPermissionsMode',
+  'sandbox', 'sandbox.enabled', 'sandbox.allowBypass',
+  'sandbox.sandboxMcpServers', 'sandbox.sandboxLspServers',
+  'sandbox.gitAuth', 'sandbox.ghAuth', 'sandbox.allowDevToolAccess',
+  'sandbox.addCurrentWorkingDirectory',
+  'sandbox.userPolicy', 'sandbox.userPolicy.filesystem',
+  'sandbox.userPolicy.network', 'sandbox.userPolicy.seatbelt',
+  'telemetry', 'telemetry.enabled', 'telemetry.endpoint',
+  'telemetry.endpointToken', 'telemetry.protocol',
+  'telemetry.captureContent', 'telemetry.lockCaptureContent',
+  'telemetry.serviceName', 'telemetry.resourceAttributes',
+  'telemetry.headers',
+  'remoteControl', 'remoteControl.requireSSO',
+  'strictKnownMarketplaces',
+]);
+
+// FLOOR VALUES — team settings must not set these values on these keys
+const FLOOR_KEY_GUARDS = {
   'sandbox.enabled':           false,
   'sandbox.allowBypass':       true,
   'sandbox.sandboxMcpServers': false,
@@ -310,22 +338,54 @@ const FLOOR_KEYS = {
   'telemetry.lockCaptureContent': false,
   'telemetry.captureContent':     true,
   'strictKnownMarketplaces':      false,
+  'permissions.disableBypassPermissionsMode': 'enable',
 };
 
 function getNestedValue(obj, keyPath) {
   return keyPath.split('.').reduce((acc, k) => acc?.[k], obj);
 }
 
-if (tmGen) {
-  for (const team of (tmGen.teams ?? [])) {
-    for (const [keyPath, forbiddenValue] of Object.entries(FLOOR_KEYS)) {
-      const val = getNestedValue(team, keyPath);
-      if (val === forbiddenValue) {
-        fail(`Team "${team.team}" sets ${keyPath}=${JSON.stringify(val)} — floor key cannot be weakened`);
+if (tmGen && typeof tmGen === 'object' && !Array.isArray(tmGen)) {
+  let teamFloorOk = true;
+  for (const [filePath, teams] of Object.entries(tmGen)) {
+    // Validate shape: value must be an array of strings
+    if (!Array.isArray(teams) || teams.some(t => typeof t !== 'string' || !t)) {
+      fail(`team-mappings.json: "${filePath}" value must be a non-empty array of team slug strings`);
+      teamFloorOk = false;
+    }
+    // Validate referenced file exists
+    const teamSettingsPath = path.join(ROOT, filePath);
+    if (!existsSync(teamSettingsPath)) {
+      fail(`team-mappings.json references missing file: ${filePath}`);
+      teamFloorOk = false;
+      continue;
+    }
+    // Parse team settings file and check for non-overridable keys and floor guards
+    let teamSettings;
+    try {
+      teamSettings = parseJsonc(readFileSync(teamSettingsPath, 'utf8'));
+    } catch (e) {
+      fail(`JSONC parse error in ${filePath}: ${e.message}`);
+      teamFloorOk = false;
+      continue;
+    }
+    // Check no non-overridable top-level keys appear
+    for (const topKey of Object.keys(teamSettings)) {
+      if (NON_OVERRIDABLE_KEYS.has(topKey)) {
+        fail(`${filePath}: contains non-overridable key "${topKey}"`);
+        teamFloorOk = false;
+      }
+    }
+    // Check floor value guards on nested keys that might appear through permissions
+    for (const [keyPath, forbiddenValue] of Object.entries(FLOOR_KEY_GUARDS)) {
+      const val = getNestedValue(teamSettings, keyPath);
+      if (val !== undefined && val === forbiddenValue) {
+        fail(`${filePath}: sets ${keyPath}=${JSON.stringify(val)} — floor value cannot be weakened`);
+        teamFloorOk = false;
       }
     }
   }
-  ok('Team mapping floor keys validated');
+  if (teamFloorOk) ok('Team mapping floor keys validated');
 }
 
 // ─── 9. Link and path existence ───────────────────────────────────────────────
@@ -338,6 +398,10 @@ const REQUIRED_FILES = [
   'copilot/managed-settings.json',
   'copilot/team-mappings.source.jsonc',
   'copilot/team-mappings.json',
+  'copilot/teams/developers.source.jsonc',
+  'copilot/teams/developers.json',
+  'copilot/teams/ai-platform-pioneers.source.jsonc',
+  'copilot/teams/ai-platform-pioneers.json',
   'agents/sdlc-planner.agent.md',
   'agents/pr-reviewer.agent.md',
   'agents/governance-gardener.agent.md',
@@ -394,9 +458,16 @@ for (const rel of REQUIRED_SCRIPTS) {
 
 section('11. Undeclared placeholders');
 
+const { readdirSync: rdSync } = await import('node:fs');
+const teamsGenDir = path.join(ROOT, 'copilot', 'teams');
+const teamGenFiles = existsSync(teamsGenDir)
+  ? rdSync(teamsGenDir).filter(f => f.endsWith('.json') && !f.endsWith('.source.json'))
+  : [];
+
 for (const [genPath, label] of [
   [MS_GEN_PATH, 'managed-settings.json'],
   [TM_GEN_PATH, 'team-mappings.json'],
+  ...teamGenFiles.map(f => [path.join(teamsGenDir, f), `teams/${f}`]),
 ]) {
   if (existsSync(genPath)) {
     const content = readFileSync(genPath, 'utf8');

@@ -2,32 +2,32 @@
   "allowedMcpServers": [
     {
       "name": "Microsoft Learn",
-      "url": "https://learn.microsoft.com/mcp"
+      "serverUrl": "https://learn.microsoft.com/mcp"
     },
     {
       "name": "Enterprise Standards",
-      "url": "https://mcp.example.internal/standards"
+      "serverUrl": "https://mcp.example.internal/standards"
     },
     {
       "name": "GitHub",
-      "url": "https://api.githubcopilot.com/mcp/"
+      "serverUrl": "https://api.githubcopilot.com/mcp/"
     },
     {
       "args": [
         "@github/mcp-docs-server@0.1.4"
       ],
-      "command": "npx",
-      "name": "GitHub Docs (local)"
+      "name": "GitHub Docs (local)",
+      "serverCommand": "npx"
     }
   ],
   "deniedMcpServers": [
     {
       "name": "OpenAI API (blocked)",
-      "url": "https://api.openai.com/"
+      "serverUrl": "https://api.openai.com/"
     },
     {
       "name": "Anthropic API (blocked)",
-      "url": "https://api.anthropic.com/"
+      "serverUrl": "https://api.anthropic.com/"
     }
   ],
   "enabledPlugins": [

@@ -315,12 +315,28 @@ try {
   const tmRendered = renderSource(tmSource, TOKEN_MAP);
   checkUnresolved(tmRendered, 'team-mappings.json');
 
+  // Render individual team settings files (copilot/teams/*.source.jsonc)
+  const { readdirSync } = await import('node:fs');
+  const teamsDir = path.join(ROOT, 'copilot', 'teams');
+  const teamFiles = existsSync(teamsDir)
+    ? readdirSync(teamsDir).filter(f => f.endsWith('.source.jsonc'))
+    : [];
+  const teamPairs = teamFiles.map(f => {
+    const src = path.join(teamsDir, f);
+    const target = path.join(teamsDir, f.replace('.source.jsonc', '.json'));
+    const label = `teams/${f.replace('.source.jsonc', '.json')}`;
+    const rendered = renderSource(src, TOKEN_MAP);
+    checkUnresolved(rendered, label);
+    return [target, rendered, label];
+  });
+
   if (CHECK_MODE) {
     // Verify byte-exact match with committed generated files
     let failures = 0;
     for (const [target, rendered, label] of [
       [msTarget, msRendered, 'managed-settings.json'],
       [tmTarget, tmRendered, 'team-mappings.json'],
+      ...teamPairs,
     ]) {
       if (!existsSync(target)) {
         console.error(`FAIL: ${label} — generated file does not exist (run without --check to generate)`);
@@ -343,6 +359,10 @@ try {
     console.log(`Wrote: copilot/managed-settings.json`);
     writeFileSync(tmTarget, tmRendered, 'utf8');
     console.log(`Wrote: copilot/team-mappings.json`);
+    for (const [target, rendered, label] of teamPairs) {
+      writeFileSync(target, rendered, 'utf8');
+      console.log(`Wrote: copilot/${label}`);
+    }
     console.log('Render complete. Validate with: node scripts/validate-governance.mjs');
   }
 } catch (err) {

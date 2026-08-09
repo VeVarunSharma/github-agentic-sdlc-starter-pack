@@ -143,8 +143,8 @@ test('allowedMcpServers has no http:// entries', () => {
   const src = readFileSync(path.join(ROOT, 'copilot', 'managed-settings.source.jsonc'), 'utf8');
   const parsed = parseJsonc(substitute(src, DEMO_TOKENS));
   for (const entry of (parsed.allowedMcpServers ?? [])) {
-    if (entry.url) {
-      assert.ok(!entry.url.startsWith('http://'), `MCP server uses http://: ${entry.url}`);
+    if (entry.serverUrl) {
+      assert.ok(!entry.serverUrl.startsWith('http://'), `MCP server uses http://: ${entry.serverUrl}`);
     }
   }
 });
@@ -167,23 +167,46 @@ test('strictKnownMarketplaces is true', () => {
   assert.equal(parsed.strictKnownMarketplaces, true, 'strictKnownMarketplaces must be true');
 });
 
-test('team-mappings.source.jsonc parses and has teams array', () => {
+test('team-mappings.source.jsonc parses with correct {"file.json":["team-slug"]} shape', () => {
   const src = readFileSync(path.join(ROOT, 'copilot', 'team-mappings.source.jsonc'), 'utf8');
   const parsed = parseJsonc(substitute(src, DEMO_TOKENS));
-  assert.ok(Array.isArray(parsed.teams), 'teams must be an array');
-  assert.ok(parsed.teams.length >= 2, 'must have at least 2 team entries');
+  assert.ok(typeof parsed === 'object' && !Array.isArray(parsed), 'team-mappings must be a plain object');
+  assert.ok(Object.keys(parsed).length >= 2, 'must have at least 2 team file entries');
+  for (const [filePath, teams] of Object.entries(parsed)) {
+    assert.ok(typeof filePath === 'string' && filePath.endsWith('.json'), `key must be a .json file path: ${filePath}`);
+    assert.ok(Array.isArray(teams) && teams.length > 0, `value must be non-empty array of team slugs: ${filePath}`);
+    assert.ok(teams.every(t => typeof t === 'string' && t.length > 0), `all team slugs must be non-empty strings: ${filePath}`);
+  }
 });
 
-test('team-mappings floor keys are not weakened', () => {
-  const src = readFileSync(path.join(ROOT, 'copilot', 'team-mappings.source.jsonc'), 'utf8');
-  const parsed = deepStripCommentKeys(parseJsonc(substitute(src, DEMO_TOKENS)));
-  for (const team of parsed.teams) {
-    assert.notEqual(team?.sandbox?.enabled, false, `team ${team.team}: sandbox.enabled must not be false`);
-    assert.notEqual(team?.sandbox?.allowBypass, true, `team ${team.team}: sandbox.allowBypass must not be true`);
-    assert.notEqual(team?.telemetry?.captureContent, true, `team ${team.team}: telemetry.captureContent must not be true`);
-    assert.notEqual(team?.telemetry?.lockCaptureContent, false, `team ${team.team}: telemetry.lockCaptureContent must not be false`);
-    assert.notEqual(team?.strictKnownMarketplaces, false, `team ${team.team}: strictKnownMarketplaces must not be false`);
+test('team settings files contain only overridable keys', () => {
+  const NON_OVERRIDABLE = new Set([
+    'permissions.disableBypassPermissionsMode',
+    'sandbox', 'telemetry', 'remoteControl', 'strictKnownMarketplaces',
+  ]);
+  const teamFiles = ['copilot/teams/developers.source.jsonc', 'copilot/teams/ai-platform-pioneers.source.jsonc'];
+  for (const relPath of teamFiles) {
+    const src = readFileSync(path.join(ROOT, relPath), 'utf8');
+    const parsed = parseJsonc(substitute(src, DEMO_TOKENS));
+    for (const topKey of Object.keys(parsed)) {
+      assert.ok(!NON_OVERRIDABLE.has(topKey), `${relPath}: contains non-overridable top-level key "${topKey}"`);
+    }
+    // permissions, if present, must not contain disableBypassPermissionsMode
+    if (parsed.permissions) {
+      assert.ok(!('disableBypassPermissionsMode' in parsed.permissions),
+        `${relPath}: permissions.disableBypassPermissionsMode is non-overridable`);
+    }
   }
+});
+
+test('pioneers team uses unmanaged model and has additional MCP entry', () => {
+  const src = readFileSync(path.join(ROOT, 'copilot/teams/ai-platform-pioneers.source.jsonc'), 'utf8');
+  const parsed = parseJsonc(substitute(src, DEMO_TOKENS));
+  assert.equal(parsed.permissions?.model, 'unmanaged', 'pioneers must use unmanaged model');
+  assert.ok(Array.isArray(parsed.allowedMcpServers) && parsed.allowedMcpServers.length > 0,
+    'pioneers must have additional allowedMcpServers');
+  assert.ok(Array.isArray(parsed.enabledPlugins) && parsed.enabledPlugins.length > 0,
+    'pioneers must have additive enabledPlugins');
 });
 
 test('generated managed-settings.json is valid JSON with required keys', () => {

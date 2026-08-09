@@ -1,0 +1,62 @@
+// copilot/teams/ai-platform-pioneers.source.jsonc
+//
+// TEAM SETTINGS: AI / Platform Pioneers
+//   Team slug: {{AI_PIONEERS_TEAM}}
+//   Applies to: AI research, platform engineering, and pilot program members.
+//
+// POLICY INTENT
+//   Grants expanded model freedom and an additional internal MCP endpoint
+//   for AI research workflows. Adds the pilot-tools plugin additively.
+//   Does NOT weaken any security floor: sandbox/telemetry/remoteControl/
+//   strictKnownMarketplaces are absent (inherited non-overridable values).
+//
+// SPECIALIZATION RATIONALE
+//   • model "unmanaged": AI research requires freedom to compare models;
+//     team members accept responsibility for appropriate model use.
+//   • allowedMcpServers: adds an AI-pilots internal endpoint for
+//     experimental tooling behind the corporate firewall. Must be HTTPS.
+//     This is ADDITIVE — enterprise MCP entries remain in effect.
+//   • enabledPlugins: adds the pilot tools plugin (ADDITIVE — enterprise
+//     baseline plugins remain; this adds on top).
+//
+// SECURITY ATTESTATION
+//   Reviewed by: {{AI_PIONEERS_TEAM}} lead + Security team
+//   Review cadence: quarterly
+//   Telemetry, remoteControl, sandbox, strictKnownMarketplaces:
+//     non-overridable keys — intentionally ABSENT from this file.
+//
+{
+  "permissions": {
+    // model: "unmanaged" — team members select the model per task.
+    // Justified for AI research teams who need to compare model outputs.
+    // Risk accepted: wider model access; mitigated by sandbox and deny lists.
+    "model": "unmanaged"
+  },
+
+  // allowedMcpServers — ADDITIVE over the enterprise allowlist.
+  // Enterprise-level entries (Learn, GitHub, internal standards) remain.
+  // This adds the AI-pilots-specific internal endpoint.
+  "allowedMcpServers": [
+    {
+      // AI Pilots internal MCP — experimental tooling, firewall-restricted.
+      // {{INTERNAL_MCP_URL}} is the base; the pilot endpoint is a sub-path.
+      // Must be HTTPS; server requires corp SSO authentication.
+      "serverUrl": "{{INTERNAL_MCP_URL}}/pilots",
+      "name": "AI Pilots Tooling (internal)"
+    }
+  ],
+
+  // enabledPlugins — ADDITIVE: adds pilot tools on top of enterprise baseline.
+  // Enterprise plugin "agentic-sdlc-standards@enterprise-standards" remains.
+  "enabledPlugins": [
+    // sdlc-pilot-tools: access to experimental AI-assisted tools under
+    // evaluation. Only available in the "enterprise-standards" marketplace
+    // and only enabled for this team until promoted to enterprise-wide.
+    "sdlc-pilot-tools@enterprise-standards"
+  ]
+  // extraKnownMarketplaces: not needed — pilot plugin is in the enterprise
+  // marketplace already. If a pilot marketplace were required, add here.
+  //
+  // NOT present (non-overridable): telemetry, remoteControl, sandbox,
+  //   strictKnownMarketplaces, permissions.disableBypassPermissionsMode.
+}

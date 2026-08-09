@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -11,8 +12,9 @@ import { healthRouter } from './routes/health.js';
 import { infoRouter } from './routes/info.js';
 
 const publicDirectory = fileURLToPath(new URL('../public', import.meta.url));
-const indexFile = fileURLToPath(
+const indexHtml = readFileSync(
   new URL('../public/index.html', import.meta.url),
+  'utf8',
 );
 
 const contentSecurityPolicy = {
@@ -57,7 +59,11 @@ export function createApp({
   app.use(express.json({ limit: '100kb' }));
 
   app.get('/', (_req, res) => {
-    res.set('Cache-Control', 'no-store').sendFile(indexFile);
+    res
+      .set('Cache-Control', 'no-store')
+      .type('html')
+      .status(200)
+      .send(indexHtml);
   });
   app.use(
     express.static(publicDirectory, {

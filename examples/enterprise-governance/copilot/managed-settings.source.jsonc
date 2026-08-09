@@ -266,8 +266,11 @@
   //   ENTRY SHAPE: each entry MUST contain exactly one of:
   //     • serverUrl   — matches remote HTTP/SSE servers by URL prefix.
   //     • serverCommand — matches local stdio servers by executable name.
-  //     • serverName  — matches by server display name (AVOID: too broad;
-  //                     use serverUrl or serverCommand for precise control).
+  //     • serverName  — matches by server display name. Per the Aug 6 2026
+  //                     changelog (https://github.blog/changelog/2026-08-06-mcp-allowlists-in-enterprise-managed-settings),
+  //                     serverName is a CONVENIENCE matcher for well-known servers,
+  //                     NOT a security boundary. Avoid in security baselines;
+  //                     use serverUrl or serverCommand for precise control.
   //   Security: use exact serverUrl values. Avoid wildcards that allow
   //   unexpected subpaths. Never use http:// endpoints or @latest packages.
   // ─────────────────────────────────────────────────────────────────────────

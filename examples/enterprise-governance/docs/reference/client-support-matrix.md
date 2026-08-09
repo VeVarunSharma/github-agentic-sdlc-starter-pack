@@ -11,10 +11,18 @@ Copilot client. Update this file when official documentation changes.
 - Reference: <https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings>
 - Deployment/team mappings: <https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/manage-agents/configure-enterprise-managed-settings>
 
-**Rollout dates:** Feature availability dates are NOT included in this matrix
-because the official reference docs do not attach dated rollout information.
-For release dates, consult the [GitHub Changelog](https://github.blog/changelog/)
-and label any time-bound claims separately from this reference matrix.
+**Rollout history (labeled separately from reference docs — see [GitHub Changelog](https://github.blog/changelog/)):**
+
+| Date | Event | Link |
+|---|---|---|
+| 2026-07-27 | Plugin, marketplace, and model controls extended to Copilot app and cloud agent | [Changelog](https://github.blog/changelog/2026-07-27-enterprise-managed-settings-now-apply-to-the-github-copilot-app) |
+| 2026-08-03 | Team specialization (team overrides) released | [Changelog](https://github.blog/changelog/2026-08-03-enterprise-team-specialization-for-managed-settings) |
+| 2026-08-06 | MCP allowlists in enterprise managed settings GA | [Changelog](https://github.blog/changelog/2026-08-06-mcp-allowlists-in-enterprise-managed-settings) |
+| 2026-08-07 | Code quality automation no longer auto-adds Copilot as PR reviewer (reversal) | [Changelog](https://github.blog/changelog/2026-08-07-github-code-quality-no-longer-adds-copilot-as-a-reviewer) |
+| 2026-08-07 | Copilot code review effort levels GA | [Changelog](https://github.blog/changelog/2026-08-07-copilot-code-review-effort-levels-are-generally-available) |
+
+The reference docs above are the authoritative per-key source; changelog entries
+document rollout dates and are labeled separately.
 
 ---
 
@@ -89,18 +97,16 @@ Applies to **CLI, VS Code, and Copilot app**. Does **not** apply to cloud agent.
 | `allowedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** — additive (teams add; least-restrictive) |
 | `deniedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** — additive (more deny = more restrictive) |
 
-**Cloud agent MCP is separate:**
-- Third-party MCP → Enterprise AI Controls (UI)
-- Custom-agent MCP → repository Copilot settings
-- First-party GitHub MCP → always available; exempt from allow/deny lists
+**Note:** Bypass prompts (interactive bypass requests) surface **only** in the Copilot app,
+CLI, and VS Code — clients where the user is present. The cloud agent does not
+receive bypass prompts; any change to managed settings applies at the start of
+the cloud agent's **next task** (not in-flight).
 
-**MCP evaluation order:** built-ins always allowed → deny wins (any source)
-→ allowlist fail-closed → malformed policy fails safe.
-
-**Entry shape:** each entry must contain exactly **one** of:
-- `serverUrl` — remote HTTP/SSE server (prefer; use exact URL prefix)
-- `serverCommand` — local stdio server (include `args` to pin version)
-- `serverName` — name-only match (**avoid** — too broad for security baseline)
+**MCP allowlist notes (changelog 2026-08-06):** MCP allowlists are fail-closed — if
+an allowlist is configured, a server must match it to be allowed. The policy is
+evaluated at every layer (enterprise + all active team layers). `serverName` is
+documented as a convenience matcher for well-known servers, **not a security
+boundary** — prefer `serverUrl` or `serverCommand` for security baselines.
 
 ---
 
@@ -150,3 +156,53 @@ The following are **not** controlled by `copilot/managed-settings.json`:
 - Copilot seat assignment → Organization settings → Copilot
 - Policy for public code suggestions → Organization settings → Copilot
 - Cloud agent repository access → Organization settings → Copilot
+
+---
+
+## MCP entry shape reference
+
+Each entry in `allowedMcpServers`/`deniedMcpServers` must contain exactly **one**
+matcher field:
+
+| Field | Scope | Security recommendation |
+|---|---|---|
+| `serverUrl` | Matches remote HTTP/SSE servers by URL prefix | **Preferred for remote servers** — use exact HTTPS URL |
+| `serverCommand` | Matches local stdio servers by executable path | **Preferred for local servers** — include `args` to pin exact package+version |
+| `serverName` | Name-only match for well-known servers | Convenience, **not a security boundary** — avoid in security baselines (Aug 6 changelog) |
+
+**Cloud agent MCP (separate):**
+- Third-party MCP → Enterprise → AI Controls (UI)
+- Custom/repository MCP → repository Copilot settings
+- First-party GitHub MCP → always available; exempt from allow/deny lists
+
+---
+
+## Copilot automatic review
+
+Copilot can be configured as an automatic PR reviewer. This is **separate** from
+managed-settings and is controlled per-repository or per-organization.
+
+**Reference:** <https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-automatic-review>
+
+**Three controls:**
+1. **Automatic review** — Copilot adds itself as a reviewer when a PR is opened.
+2. **Review new pushes** — Copilot re-reviews when new commits are pushed.
+3. **Review drafts** — Copilot reviews draft PRs (disabled by default).
+
+**Cost and tradeoffs:**
+- Each Copilot review consumes AI credits and may trigger an Actions workflow run.
+- Enabling "review new pushes" on active branches can generate many repeated reviews.
+- Enabling "review drafts" reviews work-in-progress that may be superseded quickly.
+- **Recommendation:** Enable automatic review and optionally review-new-pushes on
+  branches with protection rules; disable review-drafts unless the team explicitly
+  opts in. Monitor AI credit consumption weekly during rollout.
+
+**Aug 7, 2026 reversal:** The GitHub Code Quality automation that previously added
+Copilot as a reviewer automatically was **reverted**. Copilot is no longer
+auto-added as a reviewer by code quality features. Configure auto-review
+explicitly per the docs above if desired.
+([Changelog](https://github.blog/changelog/2026-08-07-github-code-quality-no-longer-adds-copilot-as-a-reviewer))
+
+**Code review effort levels (GA 2026-08-07):** Copilot code review now supports
+configurable effort levels, letting reviewers request lighter or deeper analysis.
+([Changelog](https://github.blog/changelog/2026-08-07-copilot-code-review-effort-levels-are-generally-available))

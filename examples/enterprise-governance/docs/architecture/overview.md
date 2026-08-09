@@ -42,11 +42,15 @@ managed-settings infrastructure to every supported Copilot client.
 
 ## Key concepts
 
-### Managed settings source repository
+## Managed settings source repository
 
 - GitHub Enterprise reads `copilot/managed-settings.json` from the repository
-  configured as the **managed settings source** under Enterprise → Copilot →
-  Managed settings.
+  configured as the **managed settings source**.
+- **Create the `.github-private` repository:**
+  <https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/manage-agents/create-github-private-repo>
+- **Select the configuration source:**
+  Enterprise Settings → AI Controls → Agents → **Configuration source** → choose
+  the `.github-private` repository.
 - Only one repository per organization can be the managed settings source.
 - The file must be at exactly `copilot/managed-settings.json` (strict JSON,
   no comments).
@@ -101,13 +105,13 @@ for the full dated matrix.
 | Setting | CLI | VS Code | Copilot app | Cloud agent |
 |---|---|---|---|---|
 | permissions | ✓ | ✓ | ✓ | ✓ |
-| sandbox | ✓ | Partial | ✗ | ✗ (managed by GitHub infra) |
+| sandbox | ✓ | ✗ | ✗ | ✗ (GitHub infra) |
 | telemetry | ✓ | ✓ | ✗ (separate) | ✗ (separate) |
-| remoteControl | ✓ | ✓ | ✗ | ✗ |
+| remoteControl | ✓ | ✓ | ✓ | ✗ |
 | allowedMcpServers | ✓ | ✓ | ✓ | ✗ (separate — see below) |
 | deniedMcpServers | ✓ | ✓ | ✓ | ✗ |
-| enabledPlugins | ✓ | ✓ | ✓ | ✗ |
-| strictKnownMarketplaces | ✓ | ✓ | ✓ | ✗ |
+| enabledPlugins | ✓ | ✓ | ✓ | ✓ |
+| strictKnownMarketplaces | ✓ | ✓ | ✓ | ✓ |
 
 ### Cloud agent MCP note
 
@@ -146,6 +150,19 @@ and verified separately from this overlay.
 
 ## Official documentation links
 
-- Managed settings: https://docs.github.com/en/enterprise-cloud@latest/copilot/managing-copilot/managing-github-copilot-in-your-organization/managing-github-copilot-features-in-your-organization/configuring-managed-settings-with-your-github-copilot-plan
-- MCP in Copilot: https://docs.github.com/en/copilot/customizing-copilot/using-model-context-protocol-with-github-copilot
-- Copilot for Enterprise: https://docs.github.com/en/enterprise-cloud@latest/copilot
+- Managed settings reference: <https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings>
+- Configure managed settings (deployment/team mappings): <https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/manage-agents/configure-enterprise-managed-settings>
+- Create the `.github-private` repository: <https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/manage-agents/create-github-private-repo>
+- Configure automatic review: <https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-automatic-review>
+- MCP in Copilot: <https://docs.github.com/en/copilot/customizing-copilot/using-model-context-protocol-with-github-copilot>
+- Copilot for Enterprise: <https://docs.github.com/en/enterprise-cloud@latest/copilot>
+
+**Rollout history (changelog entries, labeled separately from reference docs):**
+
+| Date | Event |
+|---|---|
+| 2026-07-27 | [Enterprise managed settings — app and cloud agent](https://github.blog/changelog/2026-07-27-enterprise-managed-settings-now-apply-to-the-github-copilot-app) |
+| 2026-08-03 | [Team specialization for managed settings](https://github.blog/changelog/2026-08-03-enterprise-team-specialization-for-managed-settings) |
+| 2026-08-06 | [MCP allowlists GA](https://github.blog/changelog/2026-08-06-mcp-allowlists-in-enterprise-managed-settings) |
+| 2026-08-07 | [Code quality no longer auto-adds Copilot reviewer (reversal)](https://github.blog/changelog/2026-08-07-github-code-quality-no-longer-adds-copilot-as-a-reviewer) |
+| 2026-08-07 | [Code review effort levels GA](https://github.blog/changelog/2026-08-07-copilot-code-review-effort-levels-are-generally-available) |

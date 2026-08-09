@@ -6,7 +6,7 @@
       "headers": {}
     },
     "microsoftdocs/mcp": {
-      "type": "sse",
+      "type": "http",
       "url": "https://learn.microsoft.com/api/mcp",
       "headers": {}
     },

@@ -71,11 +71,13 @@ Required-check names (must match exactly, case-sensitive):
 
 | Required check name | Source workflow → job → name |
 |---------------------|------------------------------|
-| `app — lint + tests` | `ci.yml` → `app-lint-test` |
-| `terraform — fmt + validate (bootstrap)` | `ci.yml` → `terraform-fmt-validate` (matrix: bootstrap) |
-| `terraform — fmt + validate (app)` | `ci.yml` → `terraform-fmt-validate` (matrix: app) |
-| `docker — build sample app image (smoke)` | `ci.yml` → `docker-build` |
-| `Analyze (javascript)` | `codeql.yml` → `analyze` (matrix: javascript) |
+| `app — lint + tests + audit` | `ci.yml` → `app-lint-test` |
+| `terraform — fmt + validate (infra/bootstrap)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
+| `terraform — fmt + validate (infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
+| `terraform — fmt + validate (examples/azure-container-apps/infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
+| `docker — build + health smoke` | `ci.yml` → `docker-build` |
+| `repository — workflows + shell + JSON + lockfiles` | `ci.yml` → `repository-validation` |
+| `Analyze (javascript-typescript)` | `codeql.yml` → `analyze` (matrix) |
 | `apm install + audit` | `apm-audit.yml` → `audit` |
 | `Review dependency changes` | `dependency-review.yml` → `dependency-review` |
 

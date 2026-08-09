@@ -13,7 +13,7 @@
 #     policy.
 #
 # What this workflow does:
-#   1. `azure/login@v2` — OIDC, federated subject
+#   1. `azure/login` — OIDC, federated subject
 #      `repo:<owner>/<repo>:environment:infra-apply`.
 #   2. `terraform init` — remote state in the bootstrap-provisioned
 #      storage account (auth via OIDC, no shared key).
@@ -59,23 +59,24 @@ jobs:
   apply:
     name: terraform apply (${{ inputs.module }})
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: infra-apply
     defaults:
       run:
         working-directory: infra/${{ inputs.module }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Azure login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.9.8'
           terraform_wrapper: false
@@ -83,7 +84,7 @@ jobs:
       - name: terraform init
         env:
           # azurerm backend will use OIDC + AAD auth; both come from
-          # `azure/login@v2` above. ARM_USE_OIDC tells the backend to
+          # The Azure login step above provides OIDC. ARM_USE_OIDC tells the backend to
           # request an ID token from GitHub at init time.
           ARM_USE_OIDC: 'true'
           ARM_USE_AZUREAD: 'true'

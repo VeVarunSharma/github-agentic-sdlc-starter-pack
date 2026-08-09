@@ -69,5 +69,5 @@ Repos following the baseline should expect:
 | Node.js (sample app) | Each LTS cut (~April every 2 years). Update `app/package.json` `engines.node`, `Dockerfile` base image, devcontainer image. |
 | Terraform CLI | Each minor release; pin in `infra/*/versions.tf` |
 | AzureRM provider | Quarterly; coordinate with bootstrap apply |
-| APM CLI | When a breaking change is announced (Spike F flagged 0.12.3→0.12.4 as one); update `apm-policy.yml` `apm_cli_version` and `.github/workflows/apm-audit.yml` |
+| APM CLI | When a breaking change is announced; update `scripts/install-apm.sh` `APM_VERSION` and `.github/workflows/apm-audit.yml`. The `apm_cli_version` field does NOT exist in `apm-policy.yml`; pin the CLI via `install-apm.sh`. |
 | GHAS features | When GitHub announces new free-tier features applicable to the baseline — update [`repo-settings-checklist.md`](./repo-settings-checklist.md) |

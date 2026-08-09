@@ -3,7 +3,7 @@
 # Trigger: push to main (after squash merge).
 #
 # What this workflow does:
-#   1. `azure/login@v2` — OIDC, federated subject
+#   1. `azure/login` — OIDC, federated subject
 #      `repo:<owner>/<repo>:environment:production`.
 #   2. `az acr login` against the workload's ACR.
 #   3. `docker build` + `docker push` (image tag = commit SHA).
@@ -45,15 +45,16 @@ jobs:
   deploy:
     name: Build, push, deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: production
       url: https://${{ steps.containerapp.outputs.fqdn }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Azure login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -80,13 +81,13 @@ jobs:
           AZURE_CONTAINERAPP_NAME: ${{ vars.AZURE_CONTAINERAPP_NAME }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: ACR login
         run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
 
       - name: Build + push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: app
           file: app/Dockerfile

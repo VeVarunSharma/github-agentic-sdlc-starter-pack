@@ -5,9 +5,9 @@ this table whenever `apm-update.yml` opens a refresh PR.
 
 ## Last verified
 
-- **Date:** 2026-05-08 (matches `apm.lock.yaml` `generated_at`)
-- **APM CLI version:** `0.12.4` (pinned in `apm-policy.yml`)
-- **Awesome-copilot HEAD:** `6d676fa6fe7df117e6ec11f96330ae277a1bbd71`
+- **Date:** 2026-08-09 (matches `apm.lock.yaml` `generated_at`)
+- **APM CLI version:** `0.28.0` (installed via `scripts/install-apm.sh`)
+- **Awesome-copilot HEAD:** `ab7544d03d4c49fdd07f5958e1888ad39c4118e2`
 
 ## Awesome-copilot deps (7)
 
@@ -76,11 +76,22 @@ excerpt in the PR body, decides, merges.
 
 ### Manual
 
+Use `scripts/refresh-apm.sh` (preferred over the manual steps below):
+
 ```bash
-apm update                                    # bumps to latest matching apm.yml constraints
-apm install                                   # regenerates managed files + lockfile
-apm audit --policy ./apm-policy.yml           # verify no policy violations
-git add apm.lock.yaml .github/instructions .github/skills
+bash scripts/refresh-apm.sh            # fetches github/awesome-copilot HEAD, pins, installs, audits
+# or to pin a specific commit:
+bash scripts/refresh-apm.sh --sha <commit>
+```
+
+Or step by step:
+
+```bash
+# 1. Update SHA pins in apm.yml manually (or via scripts/refresh-apm.sh)
+# 2. Re-run install + audit
+apm install --target copilot                  # regenerates managed files + lockfile
+apm audit --ci --policy ./apm-policy.yml      # verify no policy violations
+git add apm.yml apm.lock.yaml .github/instructions .github/skills docs/upstream-sources.md
 git commit -s -m "chore(deps): refresh apm.lock to upstream <sha>"
 ```
 

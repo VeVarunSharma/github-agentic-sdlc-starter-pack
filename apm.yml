@@ -40,9 +40,10 @@ targets:
 dependencies:
   # Awesome-copilot supplementary primitives. Each path is pinned to a
   # specific commit (the suffix after `#`) so installs are reproducible.
-  # Refresh weekly via `.github/workflows/apm-update.yml`.
+  # Refresh via `scripts/refresh-apm.sh` (see docs/upstream-sources.md).
   #
-  # Verified at github/awesome-copilot @ 6d676fa6fe7df117e6ec11f96330ae277a1bbd71:
+  # Verified at github/awesome-copilot @ ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  # (2026-08-07 — "Merge pull request #2452 … add daily-focus-board skill"):
   # - 6 instructions: language-agnostic code review, security/OWASP,
   #   container best practices, GitHub Actions CI/CD, Azure naming,
   #   Terraform best practices.
@@ -53,13 +54,13 @@ dependencies:
   # awesome-copilot has zero `.chatmode.md` files at the verified HEAD,
   # and our hand-authored chatmodes/prompts cover those primitive types.
   apm:
-    - github/awesome-copilot/instructions/code-review-generic.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/instructions/security-and-owasp.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/instructions/azure-naming.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/instructions/terraform.instructions.md#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-    - github/awesome-copilot/skills/review-and-refactor#6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+    - github/awesome-copilot/instructions/code-review-generic.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/security-and-owasp.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/azure-naming.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/terraform.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/skills/review-and-refactor#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
 
   # MCP servers. Mirror the three configured in `.vscode/mcp.json` and
   # `.github/mcp/mcp.json` so APM can wire them into other clients

@@ -1,8 +1,8 @@
 # APM update — Weekly freshness PR
 #
-# Opens (or refreshes) a PR titled `chore(deps): refresh apm.lock`
+# Opens (or refreshes) a PR titled `chore(deps): refresh APM pins`
 # every Monday morning. The PR re-resolves apm.yml against the
-# upstream registry, regenerates `apm.lock.yaml`, and re-installs
+# reviewed awesome-copilot commit, regenerates `apm.lock.yaml`, and re-installs
 # APM-managed files into `.github/`, `.agents/`, and `.vscode/`.
 #
 # This is the *freshness* loop. The drift loop (`apm-audit.yml`)
@@ -32,31 +32,27 @@ permissions:
   pull-requests: write
 
 env:
-  APM_VERSION: '0.12.4'
+  APM_VERSION: '0.28.0'
 
 jobs:
   refresh-lockfile:
-    name: apm update + open PR
+    name: apm refresh + open PR
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use a fresh clone so the PR diff is meaningful.
           fetch-depth: 0
 
       - name: Install APM CLI (pinned)
         run: |
-          curl -sSL https://aka.ms/apm-unix | sh
-          echo "$HOME/.apm/bin" >> "$GITHUB_PATH"
+          APM_VERSION="${APM_VERSION}" APM_BIN_DIR="${RUNNER_TEMP}/bin" ./scripts/install-apm.sh
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
 
-      - name: apm update (re-resolve against upstream)
-        run: |
-          # `apm update` re-resolves all dependencies and rewrites the
-          # lockfile. `apm install` then materialises any new managed
-          # files into the repo. Both are required for a clean PR.
-          apm update --target copilot
-          apm install --target copilot
+      - name: Refresh reviewed APM pins
+        run: ./scripts/refresh-apm.sh
 
       - name: Detect changes
         id: changes
@@ -71,7 +67,7 @@ jobs:
 
       - name: Open / refresh PR
         if: steps.changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           branch: chore/apm-refresh-lockfile
           base: main
@@ -82,13 +78,13 @@ jobs:
             Re-resolved by the weekly apm-update workflow.
 
             Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          title: 'chore(deps): refresh apm.lock'
+          title: 'chore(deps): refresh APM pins'
           body: |
             ## What this PR does
 
-            Re-resolves `apm.yml` against the upstream registry, refreshes
-            `apm.lock.yaml`, and updates APM-managed files in `.github/`,
-            `.agents/`, and `.vscode/` to the latest pinned SHAs.
+            Resolves the reviewed `github/awesome-copilot` `main` commit,
+            rewrites every matching pin in `apm.yml`, refreshes
+            `apm.lock.yaml`, and updates APM-managed files.
 
             ## How to review
 

@@ -19,7 +19,7 @@ hand-authored vs which APM owns is essential because:
 | `.github/instructions/infra-terraform.instructions.md` | **Hand-authored** | Path-scoped guidance for Terraform. |
 | `.github/instructions/<all other *.instructions.md>` | **APM** | Pinned in `apm.yml`; rewritten on `apm install`. |
 | `.github/prompts/*.prompt.md` | **Hand-authored** | This repo currently ships only hand-authored prompts. |
-| `.github/chatmodes/*.chatmode.md` | **Hand-authored** | awesome-copilot ships zero chatmodes today. APM v0.12.4 routes `.chatmode.md` files into `.github/agents/`, but VS Code 1.100+ reads from `.github/chatmodes/`. We hand-author into the VS Code path. |
+| `.github/chatmodes/*.chatmode.md` | **Hand-authored** | awesome-copilot ships zero chatmodes today. APM v0.28.0 routes `.chatmode.md` files into `.github/agents/`, but VS Code 1.100+ reads from `.github/chatmodes/`. We hand-author into the VS Code path. |
 | `.github/agents/*.agent.md` | **Hand-authored** | This repo currently ships one hand-authored example. |
 | `.github/skills/oidc-rotation/` | **Hand-authored** | This repo's own skill. |
 | `.github/skills/review-and-refactor/` | **APM** | From `github/awesome-copilot`. |

@@ -14,7 +14,7 @@ Key sections:
 
 ```yaml
 enforcement: block          # audit failure blocks the PR
-fetch_failure: warn         # network/registry hiccup ≠ policy violation
+fetch_failure: block        # treat registry download failures as policy violations
 
 dependencies:
   allow:
@@ -29,20 +29,23 @@ mcp:
 
 unmanaged_files:
   action: warn              # tolerate hand-authored .github/ files
-
-apm_cli_version: "0.12.4"   # pin the audit binary
 ```
+
+> **Note:** `apm_cli_version` is **not** a valid policy schema field in
+> APM v0.28.0. The CLI version is pinned by `scripts/install-apm.sh` and
+> the workflow that calls it — not by the policy YAML.
 
 ## What the audit gate does
 
 On every PR, [`apm-audit.yml`](../.github/workflows/apm-audit.yml) runs:
 
-1. `apm install --target copilot` — re-resolves dependencies against
-   `apm.yml` and `apm.lock.yaml`. Fails if the lockfile is stale or
-   any APM-managed file has drifted.
-2. `apm audit --ci --policy ./apm-policy.yml` — applies the policy.
-   Emits SARIF.
-3. `github/codeql-action/upload-sarif@v3` — uploads SARIF so findings
+1. `apm install --frozen --target copilot` — resolves dependencies against
+   `apm.yml` and `apm.lock.yaml`. The `--frozen` flag exits non-zero if the
+   lockfile is out of sync with the manifest (drift detection without
+   re-downloading). APM-managed files must match the locked resolution.
+2. `apm audit --ci --policy ./apm-policy.yml --format sarif --output apm-audit.sarif`
+   — applies the policy and emits a SARIF file at the specified path.
+3. `github/codeql-action/upload-sarif@v3` — uploads the SARIF so findings
    appear in the **Security** tab.
 
 It does **not** run `apm compile -t copilot` because that would clobber

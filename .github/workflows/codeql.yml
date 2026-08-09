@@ -22,7 +22,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   schedule:
     # Sunday 09:42 UTC — pick an off-peak time to avoid Monday-morning
     # contention with all the other weekly schedules.

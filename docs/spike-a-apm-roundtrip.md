@@ -2,6 +2,9 @@
 
 # Spike A — APM Round-Trip: Verified Contract
 
+> **Historical evidence (last cataloged 2026-08-09).** Active APM ownership and
+> supported commands live in [`apm-ownership-model.md`](./apm-ownership-model.md).
+
 > **Verified:** 2026-05-07  
 > **Researcher:** Research subagent (read-only; no live `apm install` executed)  
 > **Sources pinned to commits:**  

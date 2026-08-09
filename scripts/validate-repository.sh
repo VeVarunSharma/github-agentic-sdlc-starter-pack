@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validates repository-owned workflow, shell, JSON, and Terraform lock files.
+# Validates repository-owned agent, workflow, shell, JSON, and Terraform files.
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,7 +11,7 @@ fail() {
   failures=$((failures + 1))
 }
 
-for tool in actionlint shellcheck jq; do
+for tool in actionlint shellcheck jq node npm; do
   command -v "${tool}" >/dev/null 2>&1 || fail "Required tool '${tool}' is not on PATH"
 done
 [[ "${failures}" -eq 0 ]] || exit 1
@@ -31,12 +31,29 @@ if ! xargs actionlint < "${workflow_list}"; then
 fi
 
 find scripts -type f -name '*.sh' -print > "${shell_list}"
+find .github/hooks/scripts -type f -name '*.sh' -print >> "${shell_list}"
 if ! xargs shellcheck < "${shell_list}"; then
   fail "ShellCheck reported shell script issues"
 fi
 
 if ! ./scripts/tests/azure-oidc.test.sh; then
   fail "Azure OIDC offline tests failed"
+fi
+
+if ! ./scripts/tests/doctor.test.sh; then
+  fail "Doctor fixture tests failed"
+fi
+
+if ! ./scripts/tests/hook.test.sh; then
+  fail "Lifecycle hook fixture tests failed"
+fi
+
+if ! npm --prefix tools/harness test; then
+  fail "Agent harness unit and fixture tests failed"
+fi
+
+if ! npm --prefix tools/harness run validate; then
+  fail "Agent harness repository validation failed"
 fi
 
 find . \
@@ -71,4 +88,4 @@ if [[ "${failures}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "Repository workflows, shell scripts, JSON, action pins, and Terraform lockfiles are valid."
+echo "Repository agent surfaces, workflows, shell scripts, JSON, action pins, and Terraform lockfiles are valid."

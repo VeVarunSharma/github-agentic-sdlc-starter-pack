@@ -1,10 +1,16 @@
 <!-- HAND-AUTHORED — slash prompt for a guided security review of a PR diff. -->
 ---
-mode: agent
+agent: PR Reviewer
 description: "Guided security review of the current PR diff, cross-referenced with GHAS findings"
+tools: ["read", "search", "web", "github/*"]
 ---
 
 # /security-review
+
+This is a VS Code extension-host slash command. Agent Host and GitHub cloud
+agents should select
+[`../agents/pr-reviewer.agent.md`](../agents/pr-reviewer.agent.md), which is the
+portable equivalent.
 
 Perform a focused security review of the current pull request, combining
 **static review of the diff** with **the live GHAS findings on this PR**.

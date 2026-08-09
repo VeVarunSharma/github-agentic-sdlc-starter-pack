@@ -39,9 +39,10 @@ layers without disturbing your existing app:
 
 | What to copy | From | Why |
 |--------------|------|-----|
-| `.github/copilot-instructions.md` | This repo | Primary agent context. **Edit** to match your stack. |
+| `AGENTS.md`, `docs/README.md`, `.github/copilot-instructions.md` | This repo | Canonical map, catalog, and short compatibility bridge. **Edit** routing for your stack. |
 | `.github/instructions/` | This repo | Path-scoped guidance. **Edit** the `applyTo:` globs. |
-| `.github/prompts/`, `.github/chatmodes/`, `.github/agents/`, `.github/skills/`, `.github/hooks/`, `.github/mcp/` | This repo | Worked examples to fork from |
+| `.github/prompts/`, `.github/agents/`, `.github/skills/`, `.github/hooks/`, `.github/mcp/` | This repo | Client-labeled worked examples to fork from |
+| `tools/harness/` | This repo | Deterministic checks for the adopted surfaces |
 | `apm.yml`, `apm-policy.yml` | This repo | Trim the dep list to what you need |
 | `.github/workflows/apm-audit.yml`, `codeql.yml`, `dependency-review.yml`, `template-cleanup.yml` | This repo | Reusable verbatim |
 | `.github/rulesets/` | This repo | Adapt the required-check names to your job names |

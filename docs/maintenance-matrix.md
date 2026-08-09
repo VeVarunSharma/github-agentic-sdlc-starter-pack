@@ -12,6 +12,7 @@ gone stale.
 | Weekly | npm version-update PRs | Reviewer (human) | `.github/dependabot.yml` |
 | Weekly | GitHub Actions version-update PRs | Reviewer (human) | `.github/dependabot.yml` |
 | Weekly | CodeQL scheduled scan | (automated) | `.github/workflows/codeql.yml` cron |
+| Weekly | Documentation/harness validation | DevEx / platform team | `.github/workflows/documentation-gardening.yml` |
 | Quarterly | Refresh `docs/upstream-sources.md` "last verified" SHAs | DevEx / platform team | Manual |
 | Quarterly | Review `apm-policy.yml` allowlist for new orgs | DevEx / platform team | Manual |
 | Quarterly | Review hand-authored `.github/` primitives — still relevant? | Repo owner | Manual |
@@ -29,6 +30,7 @@ How each kind of drift surfaces:
 | APM-managed file edited by hand | `apm-audit.yml` PR check | Audit job fails with "drift in managed file" |
 | `apm.lock.yaml` out of sync with `apm.yml` | `apm-audit.yml` PR check | Audit job fails with "lockfile out of date" |
 | Hand-authored file added under `.github/` | `apm-audit.yml` PR check | Warning only ("unmanaged file"), tolerated by `unmanaged_files.action: warn` |
+| Agent map, catalog, link, schema, pin, plan, or ADR drift | `tools/harness` in CI and weekly gardening | Actionable deterministic failure |
 | Vulnerable npm dep introduced | `dependency-review.yml` PR check | Block on high/critical CVEs |
 | Fixed HIGH/CRITICAL container finding | `ci.yml` Trivy step | Docker required check fails; unfixed findings remain visible but non-blocking |
 | Vulnerable Action introduced | `dependency-review.yml` PR check | Same |
@@ -44,7 +46,8 @@ How each kind of drift surfaces:
 | `app/` | App team |
 | `infra/app/` | App team (via PR) + DevEx team (via `infra-apply.yml` approval) |
 | `infra/bootstrap/` | DevEx / platform team (one-time + rotations) |
-| `.github/copilot-instructions.md` and other hand-authored `.github/` files | Repo owner + reviewers |
+| `AGENTS.md`, `docs/README.md`, and hand-authored `.github/` files | Repo owner + reviewers |
+| `tools/harness/` | DevEx / platform team |
 | `apm.yml`, `apm-policy.yml`, `apm.lock.yaml` | DevEx / platform team |
 | `.github/workflows/` | DevEx / platform team |
 | `.github/rulesets/` | DevEx / platform team + repo owner (graduation) |

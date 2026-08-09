@@ -14,15 +14,8 @@
     "ghcr.io/devcontainers/features/common-utils:2": {}
   },
 
-  // Install app deps (best-effort) and the APM CLI.
-  // APM CLI install method: official one-line installer documented at
-  //   https://microsoft.github.io/apm/getting-started/installation/
-  // Spike A note: this installs the latest published APM release. Pin to a
-  //   specific version once we standardise on one (the script accepts an
-  //   APM_VERSION env var on most installers).
-  // TODO: pin APM CLI version once Spike A confirms the pinning mechanism for
-  //   the unix install script.
-  "postCreateCommand": "npm --prefix app ci || true && curl -sSL https://aka.ms/apm-unix | sh",
+  // Restore both Node packages and install the checksum-verified APM CLI pin.
+  "postCreateCommand": "npm --prefix app ci && npm --prefix tools/harness ci && ./scripts/install-apm.sh",
 
   "forwardPorts": [3000],
   "portsAttributes": {

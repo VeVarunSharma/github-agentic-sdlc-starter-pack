@@ -55,8 +55,9 @@ flowchart LR
 | **Sample app** | [`app/`](../app) | Node.js 22 ESM + Express 5 app, live APIs, control-plane UI, Azure Monitor preload, Dockerfile |
 | **App infra** | [`infra/app/`](../infra/app) | ACR, App Service Plan, Linux Web App, optional S1+ staging slot, Log Analytics, Application Insights |
 | **Bootstrap infra** | [`infra/bootstrap/`](../infra/bootstrap) | Plan/apply/deploy UAMIs, exact environment credentials, scoped RBAC, app RG, hardened tfstate |
-| **Agent context** | [`.github/`](../.github) | Hand-authored Copilot primitives (instructions, prompts, chatmodes, agents, skills, hooks, MCP) |
+| **Agent context** | [`AGENTS.md`](../AGENTS.md), [`docs/`](.) and [`.github/`](../.github) | Canonical map, versioned knowledge, and client-specific primitives |
 | **APM layer** | [`apm.yml`](../apm.yml), `apm-policy.yml`, `apm.lock.yaml` | Supplementary deps from `github/awesome-copilot` |
+| **Harness** | [`tools/harness/`](../tools/harness) | Deterministic links, schemas, pins, catalog, ownership, plan, and ADR checks |
 | **CI/CD** | [`.github/workflows/`](../.github/workflows) | 10 workflows: lint+test+sec+infra+deploy + Copilot setup |
 | **Branch protection** | [`.github/rulesets/`](../.github/rulesets) | Evaluate-mode default, enforce-mode for graduated repos |
 
@@ -65,6 +66,8 @@ flowchart LR
 | Boundary | Crosses what | Hardening |
 |----------|--------------|-----------|
 | Developer ↔ GitHub | Code + workflow files | Branch protection rulesets, required reviews, CODEOWNERS |
+| Agent ↔ repository context | Prompts/tools → files | Canonical map, path scoping, lifecycle hooks, deterministic harness |
+| Agent ↔ MCP | Autonomous tool calls → external service | Built-in server awareness, explicit read-only allowlists, no checked-in secrets |
 | GitHub ↔ Azure | Workflow → cloud API | Separate UAMIs and immutable exact environment subjects (`infra-plan`, `infra-apply`, `production`) |
 | Web App/slot ↔ ACR | Image pull | Each slot has its own system-assigned MI and registry-scoped `AcrPull`; ACR admin user disabled |
 | App ↔ Application Insights | Telemetry | Connection string injected via Web App app settings (not in source) |

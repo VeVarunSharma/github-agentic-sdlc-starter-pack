@@ -14,8 +14,9 @@
 #
 # What it explicitly does NOT do:
 #   * It must NOT run `apm compile -t copilot`. The hand-authored
-#     `.github/copilot-instructions.md` is the primary agent context;
-#     `apm compile` would overwrite it. The compile step is reserved
+#     `.github/copilot-instructions.md` is a hand-authored bridge to the
+#     canonical AGENTS.md map; `apm compile` would overwrite it. Compilation
+#     is reserved
 #     for repos that are 100% APM-managed — see
 #     `docs/apm-ownership-model.md`.
 #

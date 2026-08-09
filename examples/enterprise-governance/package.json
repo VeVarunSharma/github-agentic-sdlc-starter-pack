@@ -1,0 +1,16 @@
+{
+  "name": "enterprise-governance-overlay",
+  "version": "1.0.0",
+  "description": "Enterprise Copilot managed settings and governance overlay for .github-private",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test scripts/test/*.test.mjs",
+    "render": "node scripts/render-managed-settings.mjs",
+    "validate": "node scripts/validate-governance.mjs",
+    "check": "node scripts/render-managed-settings.mjs --check --enterprise example-org --organization example-org --governance-repo .github-private --otlp-endpoint https://otel.example.internal"
+  },
+  "devDependencies": {}
+}

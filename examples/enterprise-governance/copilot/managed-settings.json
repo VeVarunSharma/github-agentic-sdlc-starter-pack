@@ -1,0 +1,99 @@
+{
+  "allowedMcpServers": [
+    {
+      "name": "Microsoft Learn",
+      "url": "https://learn.microsoft.com/mcp"
+    },
+    {
+      "name": "Enterprise Standards",
+      "url": "https://mcp.example.internal/standards"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    {
+      "args": [
+        "@github/mcp-docs-server@0.1.4"
+      ],
+      "command": "npx",
+      "name": "GitHub Docs (local)"
+    }
+  ],
+  "deniedMcpServers": [
+    {
+      "name": "OpenAI API (blocked)",
+      "url": "https://api.openai.com/"
+    },
+    {
+      "name": "Anthropic API (blocked)",
+      "url": "https://api.anthropic.com/"
+    }
+  ],
+  "enabledPlugins": [
+    "agentic-sdlc-standards@enterprise-standards"
+  ],
+  "extraKnownMarketplaces": [
+    {
+      "id": "enterprise-standards",
+      "url": "https://raw.githubusercontent.com/example-org/.github-private/main/.github/plugin/marketplace.json"
+    }
+  ],
+  "permissions": {
+    "disableBypassPermissionsMode": "disable",
+    "model": "Auto"
+  },
+  "remoteControl": {
+    "requireSSO": {
+      "organization": "example-org"
+    }
+  },
+  "sandbox": {
+    "addCurrentWorkingDirectory": true,
+    "allowBypass": false,
+    "allowDevToolAccess": false,
+    "enabled": true,
+    "ghAuth": true,
+    "gitAuth": true,
+    "sandboxLspServers": true,
+    "sandboxMcpServers": true,
+    "userPolicy": {
+      "filesystem": {
+        "deniedPaths": [
+          "~/.ssh",
+          "~/.git-credentials",
+          "~/.gnupg"
+        ],
+        "readonlyPaths": [
+          "/etc/ssl/certs",
+          "/System/Library/Keychains/SystemRootCertificates.keychain"
+        ],
+        "readwritePaths": [
+          "~/.npm"
+        ]
+      },
+      "network": {
+        "allowLocalNetwork": false,
+        "allowOutbound": true
+      },
+      "seatbelt": {
+        "keychainAccess": false
+      }
+    }
+  },
+  "strictKnownMarketplaces": true,
+  "telemetry": {
+    "captureContent": false,
+    "enabled": false,
+    "endpoint": "https://otel.example.internal/v1/traces",
+    "endpointToken": "DEMO_TOKEN_NOT_FOR_PRODUCTION",
+    "headers": {},
+    "lockCaptureContent": true,
+    "protocol": "http/protobuf",
+    "resourceAttributes": {
+      "environment": "production",
+      "organization": "example-org"
+    },
+    "serviceName": "github-copilot-example-org"
+  }
+}

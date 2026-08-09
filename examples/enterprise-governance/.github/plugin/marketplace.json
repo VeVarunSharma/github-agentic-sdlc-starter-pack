@@ -1,0 +1,24 @@
+{
+  "id": "enterprise-standards",
+  "name": "Enterprise Standards Marketplace",
+  "description": "Internal enterprise marketplace for approved GitHub Copilot plugins",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "id": "agentic-sdlc-standards",
+      "name": "Agentic SDLC Standards",
+      "description": "Enterprise SDLC planner, PR reviewer, and governance hooks for all teams",
+      "version": "1.0.0",
+      "manifestUrl": "plugins/agentic-sdlc-standards/plugin.json"
+    },
+    {
+      "id": "sdlc-pilot-tools",
+      "name": "SDLC Pilot Tools",
+      "description": "Advanced tooling for AI/platform pioneer team pilot program",
+      "version": "0.1.0",
+      "manifestUrl": "plugins/sdlc-pilot-tools/plugin.json",
+      "restricted": true,
+      "allowedTeams": ["ai-platform-pioneers"]
+    }
+  ]
+}

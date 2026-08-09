@@ -1,0 +1,145 @@
+// copilot/team-mappings.source.jsonc
+//
+// TEAM POLICY OVERRIDES — annotated source.
+//
+// PURPOSE
+//   Team mappings allow specific GitHub teams to receive settings that differ
+//   from the enterprise baseline defined in managed-settings.source.jsonc.
+//   Only keys that differ from the baseline need to appear in a team mapping.
+//
+// MERGE SEMANTICS (least-restrictive wins — with hard floors)
+//   GitHub merges the enterprise policy with team policy using a
+//   least-restrictive merge: if the enterprise allows X and the team
+//   allows Y, the user gets X ∪ Y.
+//
+//   HOWEVER, the following keys are FLOOR values — team mappings CANNOT
+//   weaken them regardless of least-restrictive merge:
+//     • permissions.disableBypassPermissionsMode  → must stay "disable"
+//     • sandbox.enabled                           → must stay true
+//     • sandbox.allowBypass                       → must stay false
+//     • sandbox.sandboxMcpServers                 → must stay true
+//     • sandbox.sandboxLspServers                 → must stay true
+//     • telemetry.lockCaptureContent              → must stay true
+//     • telemetry.captureContent                  → must stay false
+//     • strictKnownMarketplaces                   → must stay true
+//
+// ENTERPRISE PRECEDENCE
+//   Team mappings are applied AFTER enterprise settings. A team mapping that
+//   conflicts with a non-overridable enterprise key is rejected by the renderer.
+//
+// VALIDATED BY
+//   `node scripts/validate-governance.mjs` and the renderer both check that
+//   no team mapping weakens the floor keys above.
+//
+{
+  // teams: array of team policy objects.
+  // Each object must have a "team" key (GitHub team slug) and only the
+  // keys that differ from the enterprise baseline.
+  "teams": [
+    // ───────────────────────────────────────────────────────────────────────
+    // Standard Developers
+    //   The default developer team. Receives enterprise baseline settings
+    //   with no additional privileges. Documented here for completeness and
+    //   to ensure all teams have an explicit, auditable policy entry.
+    //   Team slug: {{STANDARD_DEVELOPERS_TEAM}} — e.g. "developers"
+    // ───────────────────────────────────────────────────────────────────────
+    {
+      // team: GitHub team slug within the organization.
+      // {{STANDARD_DEVELOPERS_TEAM}} is substituted at render time.
+      "team": "{{STANDARD_DEVELOPERS_TEAM}}",
+
+      // _comment: human-readable description (stripped by renderer).
+      "_comment": "Standard developer team — enterprise baseline, no deviations.",
+
+      // model: "Auto" inherits enterprise baseline. Explicit here to
+      // document the choice: standard developers use Auto so GitHub
+      // selects the best model per task without pinning a version.
+      // Override to a named model only if a team has a specific
+      // compliance or cost reason.
+      "model": "Auto",
+
+      // enabledPlugins: inherits enterprise baseline (agentic-sdlc-standards).
+      // No additive plugins for standard developers.
+      // Additive merge: team plugins are ADDED to enterprise list.
+      "enabledPlugins": []
+      // sandbox: inherits enterprise baseline — no changes.
+      // telemetry: inherits enterprise baseline (enabled: false).
+    },
+
+    // ───────────────────────────────────────────────────────────────────────
+    // AI / Platform Pioneers
+    //   Early-adopter team working with advanced AI tooling, custom MCP
+    //   servers, and pilot observability. Permitted deviations are documented
+    //   here with explicit justifications.
+    //   Team slug: {{AI_PIONEERS_TEAM}} — e.g. "ai-platform-pioneers"
+    //   GOVERNANCE NOTE: changes to this team's policy require an issue
+    //   referencing the pilot program charter and CODEOWNER approval.
+    // ───────────────────────────────────────────────────────────────────────
+    {
+      "team": "{{AI_PIONEERS_TEAM}}",
+      "_comment": "AI/Platform pioneer team — pilot telemetry, internal MCP, additive plugins.",
+
+      // model: Unmanaged — pioneers are allowed to choose any approved model
+      // from the organization's model list. This enables experimentation
+      // with specific models for benchmarking without locking all users to a
+      // single choice.
+      // "Auto" would be safer; "unmanaged" grants user-level choice.
+      // The governance team must verify "unmanaged" is in the approved list.
+      "model": "unmanaged",
+
+      // enabledPlugins: additive — pioneers receive enterprise plugins PLUS
+      // their own pilot plugin from the internal marketplace.
+      // "sdlc-pilot-tools@enterprise-standards" must be listed in the
+      // marketplace.json and have a corresponding plugin.json.
+      "enabledPlugins": [
+        "sdlc-pilot-tools@enterprise-standards"
+      ],
+
+      // telemetry: pioneers enable telemetry for pilot observability.
+      // captureContent and lockCaptureContent are NOT overridden — floor
+      // values remain as enterprise baseline (false / true respectively).
+      // The renderer will reject any attempt to change those keys here.
+      "telemetry": {
+        // enabled: true for this team enables OTLP export to the enterprise
+        // telemetry endpoint. Used to monitor model usage, latency, and
+        // tool call patterns during the pilot program.
+        "enabled": true
+        // endpoint, protocol, serviceName: inherit enterprise baseline.
+        // captureContent: NOT set here — inherited enterprise floor (false).
+        // lockCaptureContent: NOT set here — inherited floor (true).
+      },
+
+      // sandbox: pioneers may use dev-tool access for debugging custom MCP
+      // servers. All other sandbox floor values remain unchanged.
+      "sandbox": {
+        // allowDevToolAccess: true permits this team to attach Chrome
+        // DevTools Protocol or similar to MCP/LSP processes for debugging.
+        // Justification: required to diagnose custom MCP server issues
+        // during the pilot. Must be removed when the pilot concludes.
+        "allowDevToolAccess": true,
+
+        // userPolicy.filesystem: pioneers need write access to an additional
+        // path for MCP server logs during the pilot.
+        "userPolicy": {
+          "filesystem": {
+            // readwritePaths: ADDITIVE — enterprise paths (e.g. ~/.npm)
+            // are preserved; the team adds a pilot-specific log directory.
+            // This is a relative path — safe because it stays in the repo.
+            "readwritePaths": [
+              "~/.npm",
+              // Pilot MCP server log directory. Using tilde-relative path
+              // to avoid hardcoding an absolute path that varies by user.
+              "~/.local/share/copilot-pilot-logs"
+            ]
+            // deniedPaths: NOT overridden — enterprise floor (includes ~/.ssh,
+            // ~/.git-credentials, ~/.gnupg) is always inherited.
+          }
+        }
+        // sandbox.enabled: inherited floor (true).
+        // sandbox.allowBypass: inherited floor (false).
+        // sandbox.sandboxMcpServers: inherited floor (true).
+        // sandbox.sandboxLspServers: inherited floor (true).
+      }
+    }
+  ]
+}

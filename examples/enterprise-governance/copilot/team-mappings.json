@@ -1,0 +1,30 @@
+{
+  "teams": [
+    {
+      "enabledPlugins": [],
+      "model": "Auto",
+      "team": "developers"
+    },
+    {
+      "enabledPlugins": [
+        "sdlc-pilot-tools@enterprise-standards"
+      ],
+      "model": "unmanaged",
+      "sandbox": {
+        "allowDevToolAccess": true,
+        "userPolicy": {
+          "filesystem": {
+            "readwritePaths": [
+              "~/.npm",
+              "~/.local/share/copilot-pilot-logs"
+            ]
+          }
+        }
+      },
+      "team": "ai-platform-pioneers",
+      "telemetry": {
+        "enabled": true
+      }
+    }
+  ]
+}

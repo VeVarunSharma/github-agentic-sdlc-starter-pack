@@ -1,0 +1,43 @@
+name: Overlay validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate governance overlay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # actions/checkout pinned to v4 SHA — update via Dependabot
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node 22
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --prefix . --ignore-scripts
+        working-directory: ${{ github.workspace }}
+
+      - name: Run unit tests
+        run: node --test scripts/test/*.test.mjs
+
+      - name: Render check (verify generated files match source)
+        run: |
+          node scripts/render-managed-settings.mjs \
+            --enterprise example-org \
+            --organization example-org \
+            --governance-repo .github-private \
+            --otlp-endpoint https://otel.example.internal \
+            --check
+
+      - name: Full overlay validation
+        run: node scripts/validate-governance.mjs

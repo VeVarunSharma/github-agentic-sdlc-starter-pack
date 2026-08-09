@@ -2,13 +2,26 @@ data "azurerm_resource_group" "app" {
   name = var.resource_group_name
 }
 
+data "azurerm_client_config" "current" {}
+
 locals {
   rg = data.azurerm_resource_group.app
 
-  webapp_name = "${var.name_prefix}-app"
-  plan_name   = "${var.name_prefix}-plan"
-  law_name    = "${var.name_prefix}-law"
-  ai_name     = "${var.name_prefix}-ai"
+  ai_name   = "appi-${var.workload_name}-${var.environment}-${var.region_short}"
+  law_name  = "log-${var.workload_name}-${var.environment}-${var.region_short}"
+  plan_name = "asp-${var.workload_name}-${var.environment}-${var.region_short}"
+
+  role_ids = {
+    acr_pull            = "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+    acr_push            = "8311e382-0749-4cb8-b61a-304f252e45ec"
+    reader              = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+    website_contributor = "de139f84-1756-47ae-9be6-808fbbe84772"
+  }
+
+  role_definition_ids = {
+    for name, id in local.role_ids :
+    name => "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${id}"
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -62,7 +75,7 @@ resource "azurerm_service_plan" "this" {
 }
 
 resource "azurerm_linux_web_app" "this" {
-  name                = local.webapp_name
+  name                = var.web_app_name
   resource_group_name = local.rg.name
   location            = local.rg.location
   service_plan_id     = azurerm_service_plan.this.id
@@ -123,15 +136,41 @@ resource "azurerm_linux_web_app" "this" {
 }
 
 # ---------------------------------------------------------------------------
-# RBAC — Web App's MI gets AcrPull on the registry
-# This is the role assignment that REQUIRED `User Access Administrator`
-# on the deploy MI at RG scope (granted in infra/bootstrap).
+# RBAC — the constrained apply identity may create only these assignments.
+# Built-in role IDs:
+# https://learn.microsoft.com/azure/role-based-access-control/built-in-roles
 # ---------------------------------------------------------------------------
 
 resource "azurerm_role_assignment" "webapp_acr_pull" {
-  scope                = azurerm_container_registry.this.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_linux_web_app.this.identity[0].principal_id
+  principal_id                     = azurerm_linux_web_app.this.identity[0].principal_id
+  principal_type                   = "ServicePrincipal"
+  role_definition_id               = local.role_definition_ids.acr_pull
+  scope                            = azurerm_container_registry.this.id
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "deploy_acr_push" {
+  principal_id       = var.deploy_principal_id
+  principal_type     = "ServicePrincipal"
+  role_definition_id = local.role_definition_ids.acr_push
+  scope              = azurerm_container_registry.this.id
+}
+
+# az acr login requires registry control-plane read in addition to AcrPush.
+resource "azurerm_role_assignment" "deploy_acr_reader" {
+  principal_id       = var.deploy_principal_id
+  principal_type     = "ServicePrincipal"
+  role_definition_id = local.role_definition_ids.reader
+  scope              = azurerm_container_registry.this.id
+}
+
+# Parent Web App scope covers configuration, restart, child slots, and swaps
+# while avoiding resource-group-wide Website Contributor.
+resource "azurerm_role_assignment" "deploy_web_app" {
+  principal_id       = var.deploy_principal_id
+  principal_type     = "ServicePrincipal"
+  role_definition_id = local.role_definition_ids.website_contributor
+  scope              = azurerm_linux_web_app.this.id
 }
 
 # ---------------------------------------------------------------------------

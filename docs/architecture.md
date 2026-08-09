@@ -21,18 +21,27 @@ flowchart LR
   end
   subgraph Azure["Azure"]
     direction TB
-    UAMI[(Deploy UAMI)]
+    PlanID[(Plan UAMI)]
+    ApplyID[(Apply UAMI)]
+    DeployID[(Deploy UAMI)]
+    State[(Hardened tfstate)]
     ACR[(Container Registry)]
     App[(Linux Web App)]
     LAW[(Log Analytics)]
     AppI[(Application Insights)]
-    UAMI --> ACR
-    UAMI --> App
+    PlanID --> State
+    ApplyID --> State
+    ApplyID --> ACR
+    ApplyID --> App
+    DeployID --> ACR
+    DeployID --> App
     App --> ACR
     App --> AppI
     AppI --> LAW
   end
-  Actions -- OIDC token --> UAMI
+  Actions -- infra-plan OIDC --> PlanID
+  Actions -- infra-apply OIDC --> ApplyID
+  Actions -- production OIDC --> DeployID
   Actions -- docker push --> ACR
   Actions -- az webapp config container set --> App
 ```
@@ -43,7 +52,7 @@ flowchart LR
 |-----------|----------------|------|
 | **Sample app** | [`app/`](../app) | Express HTTP API on Node.js 22 + Dockerfile |
 | **App infra** | [`infra/app/`](../infra/app) | ACR, App Service Plan, Linux Web App, Log Analytics, Application Insights |
-| **Bootstrap infra** | [`infra/bootstrap/`](../infra/bootstrap) | UAMI, federated credentials, app RG, tfstate backend |
+| **Bootstrap infra** | [`infra/bootstrap/`](../infra/bootstrap) | Plan/apply/deploy UAMIs, exact environment credentials, scoped RBAC, app RG, hardened tfstate |
 | **Agent context** | [`.github/`](../.github) | Hand-authored Copilot primitives (instructions, prompts, chatmodes, agents, skills, hooks, MCP) |
 | **APM layer** | [`apm.yml`](../apm.yml), `apm-policy.yml`, `apm.lock.yaml` | Supplementary deps from `github/awesome-copilot` |
 | **CI/CD** | [`.github/workflows/`](../.github/workflows) | 10 workflows: lint+test+sec+infra+deploy + Copilot setup |
@@ -54,7 +63,7 @@ flowchart LR
 | Boundary | Crosses what | Hardening |
 |----------|--------------|-----------|
 | Developer ↔ GitHub | Code + workflow files | Branch protection rulesets, required reviews, CODEOWNERS |
-| GitHub ↔ Azure | Workflow → cloud API | OIDC federated credentials (no shared secrets); env-scoped subjects (`production`, `infra-apply`) |
+| GitHub ↔ Azure | Workflow → cloud API | Separate UAMIs and immutable exact environment subjects (`infra-plan`, `infra-apply`, `production`) |
 | Web App ↔ ACR | Image pull | Web App's system-assigned MI with `AcrPull` role on the registry; ACR admin user disabled |
 | App ↔ Application Insights | Telemetry | Connection string injected via Web App app settings (not in source) |
 | External ↔ Web App | HTTPS | TLS termination at App Service; no public ports on ACR or LAW |
@@ -67,8 +76,8 @@ flowchart LR
 2. Reviewer approves → squash merge to `main`.
 3. `azure-deploy.yml` triggers on push to `main` with `environment:
    production`. The job exchanges its OIDC token for an Azure access
-   token (federated credential subject:
-   `repo:<owner>/<repo>:environment:production`).
+   token using the production UAMI and exact immutable repository/environment
+   subject.
 4. `az acr login` → `docker build` → `docker push` (image tag = SHA).
 5. `az webapp config container set` updates the Web App to point at the
    new image; App Service pulls via the Web App MI's `AcrPull` role.

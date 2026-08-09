@@ -1,101 +1,69 @@
-# `infra/app` — Application infrastructure (CI-applied via OIDC)
+# `infra/app` - CI-applied application infrastructure
 
-This Terraform module provisions everything the sample Node/Express app
-needs to run on Azure App Service Linux Containers. It is **applied
-from CI** (`infra-apply.yml`) using the OIDC-federated identity
-created by `infra/bootstrap`. No long-lived Azure credentials live in
-GitHub.
+This module creates ACR, Log Analytics, Application Insights, an App Service
+Plan, and the Linux Web App. The manual `infra-apply.yml` workflow plans with
+the `infra-plan` identity and applies the exact saved binary plan with the
+`infra-apply` identity.
 
-## What this module owns
+## Required inputs
 
-| Resource | Purpose |
+| Terraform variable | Repository variable |
 | --- | --- |
-| `azurerm_container_registry.this` | Stores app images. Admin disabled — the Web App pulls via its system-assigned MI. |
-| `azurerm_log_analytics_workspace.this` | Central log sink. |
-| `azurerm_application_insights.this` | Workspace-based App Insights, wired into the Web App via app settings. |
-| `azurerm_service_plan.this` | Linux App Service Plan (B1 default). |
-| `azurerm_linux_web_app.this` | The Web App itself, container-hosted, system-assigned MI, /health probe, HTTPS-only. |
-| `azurerm_role_assignment.webapp_acr_pull` | Web App MI → `AcrPull` on the registry. Requires `User Access Administrator` on the deploy MI at RG scope (granted by `infra/bootstrap`). |
-| `azurerm_monitor_diagnostic_setting.webapp` | Ships HTTP logs, console logs, app logs, and metrics to Log Analytics. |
+| `resource_group_name` | `AZURE_RESOURCE_GROUP` |
+| `acr_name` | `AZURE_ACR_NAME` |
+| `web_app_name` | `AZURE_WEBAPP_NAME` |
+| `deploy_principal_id` | `AZURE_DEPLOY_PRINCIPAL_ID` |
+| `environment` | `AZURE_ENVIRONMENT` |
+| `region_short` | `AZURE_REGION_SHORT` |
+| `workload_name` | `AZURE_WORKLOAD_NAME` |
 
-## What this module does **not** own
+All values are created by `scripts/setup-azure-oidc.sh` before the first app
+apply, eliminating the former ACR/Web App variable deadlock.
 
-`infra/bootstrap` owns the resource group, the deploy managed
-identity, the federated credentials, and the tfstate backend. None of
-those resources are referenced here as `resource` blocks — only as
-`data` (the RG) or via the OIDC-federated provider configuration.
+Provider authentication is not represented by Terraform variables. CI supplies
+`ARM_USE_OIDC`, `ARM_USE_AZUREAD`, `ARM_CLIENT_ID`, `ARM_TENANT_ID`, and
+`ARM_SUBSCRIPTION_ID` per job, so the saved plan can move from the plan
+identity to the apply identity without embedding identity configuration.
 
-That separation means CI never needs subscription-scope or
-`User Access Administrator` permissions.
+## Resource-scoped deploy roles
 
-## Required inputs (from infra/bootstrap)
+This module grants the deploy UAMI:
 
-| Variable | Source | Notes |
-| --- | --- | --- |
-| `subscription_id` | repo var `AZURE_SUBSCRIPTION_ID` | |
-| `tenant_id` | repo var `AZURE_TENANT_ID` | |
-| `client_id` | repo var `AZURE_CLIENT_ID` | UAMI client ID |
-| `resource_group_name` | repo var `AZURE_RESOURCE_GROUP` | |
-| `acr_name` | choose at adoption | Globally unique, 5–50 lowercase alphanumeric. |
+- `AcrPush` and control-plane `Reader` on the exact registry (`az acr login`
+  needs both);
+- `Website Contributor` on the exact parent Web App, which covers
+  configuration, restart, child slots, and swap operations;
+- no resource-group or bootstrap role.
 
-## Typical CI usage
+The Web App system identity receives `AcrPull` on the exact registry.
+Built-in IDs come from Microsoft's
+[Azure built-in roles](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles).
 
-```bash
-cd infra/app
+## CI and local use
 
-terraform init \
-  -backend-config="resource_group_name=$AZURE_TFSTATE_RG" \
-  -backend-config="storage_account_name=$AZURE_TFSTATE_STORAGE_ACCOUNT" \
-  -backend-config="container_name=$AZURE_TFSTATE_CONTAINER"
-
-terraform plan \
-  -var="subscription_id=$AZURE_SUBSCRIPTION_ID" \
-  -var="tenant_id=$AZURE_TENANT_ID" \
-  -var="client_id=$AZURE_CLIENT_ID" \
-  -var="resource_group_name=$AZURE_RESOURCE_GROUP" \
-  -var="acr_name=$ACR_NAME"
-
-terraform apply -auto-approve ...same vars...
-```
-
-`infra-apply.yml` does this exact flow, gated by the `infra-apply`
-GitHub environment for human approval.
-
-## What the deploy workflow consumes
-
-`azure-deploy.yml` reads two outputs from the most recent
-`terraform apply`:
-
-- `acr_login_server` — for `az acr login` and `docker tag`.
-- `web_app_name` — for `az webapp config container set`.
-
-The deploy workflow **never re-runs `terraform apply`**. It only
-rolls the container image forward. Infra changes flow through
-`infra-apply.yml` so a code-only deploy can never silently mutate
-infra.
-
-## Local development (optional)
-
-You can run this against your own subscription with `az login`:
+The workflow initializes the AzureAD backend, validates, saves `tfplan`, uploads
+the binary for five days, verifies its SHA-256 in the approval-gated apply job,
+and runs only:
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
-# Fill in subscription_id / tenant_id / client_id (your user, NOT
-# the CI MI) and acr_name.
-
-terraform init -backend=false   # local-only, no remote state
-terraform plan
+terraform apply -input=false -auto-approve -lock-timeout=5m tfplan
 ```
 
-When running locally, drop `use_oidc = true` from
-`providers.tf` (or override with `-var-file` containing
-`use_oidc = false`). The CI uses OIDC.
+Terraform rejects a stale plan if state changed while approval was pending.
 
-## Drift / fork-safety
+For local Azure CLI use:
 
-PR runs from forks **must not** execute `terraform plan` against the
-real subscription — that would either leak the OIDC token to a fork's
-`pull_request` event (mitigated but not eliminated) or fail with
-permission errors. PR CI (`ci.yml`) runs `terraform fmt -check` and
-`terraform validate` only. Cloud-backed plans are reserved for the
-`infra-apply.yml` workflow which is gated by environment approval.
+```bash
+az login
+export ARM_SUBSCRIPTION_ID="<subscription-id>"
+cp infra/app/terraform.tfvars.example infra/app/terraform.tfvars
+terraform -chdir=infra/app init -backend=false
+terraform -chdir=infra/app plan
+```
+
+The provider deliberately disables automatic resource-provider registration.
+The setup script registers `Microsoft.Authorization`,
+`Microsoft.ContainerRegistry`, `Microsoft.Insights`,
+`Microsoft.ManagedIdentity`, `Microsoft.OperationalInsights`,
+`Microsoft.Resources`, `Microsoft.Storage`, and `Microsoft.Web` before
+bootstrap.

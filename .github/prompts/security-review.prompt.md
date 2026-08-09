@@ -58,15 +58,20 @@ comment.
    **Infra (`infra/**`):**
    - New role assignments at subscription scope (must be RG scope or
      tighter; flag any subscription-scope grant).
-   - `azurerm_storage_account` without `min_tls_version = "TLS1_2"`,
-     without HTTPS-only, or with public network access enabled.
+   - `azurerm_storage_account` without `min_tls_version = "TLS1_2"` or
+     Shared Key disabled. The dedicated tfstate account may retain its public
+     endpoint for GitHub-hosted runners when anonymous access is disabled and
+     fixed-egress/private-endpoint hardening is documented.
    - `azurerm_key_vault` with `purge_protection_enabled = false`,
      `soft_delete_retention_days < 7`, or public network access.
    - `azurerm_container_registry` with `admin_enabled = true` (must
      be `false` in this repo — Web App MI + AcrPull only).
-   - New federated credentials whose subject claim doesn't follow
-     `repo:<owner>/<repo>:environment:<env>` or
-     `repo:<owner>/<repo>:pull_request`.
+   - New federated credentials whose subject is not an exact environment
+     claim. Default format is
+     `repo:<owner>@<owner-id>/<repo>@<repo-id>:environment:<env>`;
+     explicit legacy compatibility is
+     `repo:<owner>/<repo>:environment:<env>`. Wildcards and pull-request
+     federation are forbidden.
 
    **Workflows (`.github/workflows/**`):**
    - `pull_request_target` with `actions/checkout` of `${{ github.event.pull_request.head.sha }}` (classic supply-chain hole).

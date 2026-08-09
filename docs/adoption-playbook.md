@@ -17,9 +17,12 @@ how much you want to lift-and-shift vs cherry-pick.
    az login
    ./scripts/setup-azure-oidc.sh --repo <my-org>/<my-app>
    ```
-   This runs `terraform -chdir=infra/bootstrap apply` with `az login`
-   creds and sets the seven `AZURE_*` GitHub repo variables (not
-   secrets) that the CI/CD workflows read.
+   This queries immutable GitHub owner/repository IDs, runs
+   `terraform -chdir=infra/bootstrap apply` with `az login` credentials,
+   creates the three GitHub Environments, and sets every `AZURE_*`
+   repository variable needed before the first app apply. For a verified
+   older repository that still emits legacy subjects, add
+   `--legacy-subject`.
 4. **Verify locally**:
    ```bash
    ./scripts/bootstrap.sh    # apm install (optional) + npm ci + verify.sh
@@ -81,6 +84,7 @@ Before you make the first commit on a brand-new derived repo:
 
 - [ ] `<owner>/<repo>` placeholders replaced (workflow or script)
 - [ ] Azure subscription + tenant chosen
+- [ ] `infra-apply` Environment has required reviewers; `infra-plan` is ungated
 - [ ] CODEOWNERS team exists (or replace `<owner>/<team>` with users)
 - [ ] Branch protection: evaluate-mode imported (rulesets)
 - [ ] GHAS settings reviewed (free tier covers everything in baseline

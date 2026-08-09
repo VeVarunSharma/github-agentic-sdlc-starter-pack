@@ -1,31 +1,17 @@
-# Most of these are sourced from infra/bootstrap outputs and passed
-# via -var=... in CI, not from this file. The example here is for
-# local dev / one-off runs.
+resource_group_name = "rg-sdlcstarter-prod-eus"
+environment         = "prod"
+region_short        = "eus"
+workload_name       = "sdlcstarter"
 
-subscription_id     = "00000000-0000-0000-0000-000000000000"
-tenant_id           = "00000000-0000-0000-0000-000000000000"
-client_id           = "00000000-0000-0000-0000-000000000000"
-resource_group_name = "agentic-sdlc-app-rg"
-location            = "eastus"
-name_prefix         = "agentic-sdlc"
+# Generated before the first apply by scripts/setup-azure-oidc.sh.
+acr_name          = "crsdlcstarterprod1234abcd"
+web_app_name      = "app-sdlcstarter-prod-eus-1234abcd"
+deploy_principal_id = "00000000-0000-0000-0000-000000000000"
 
-# ACR name must be globally unique across Azure (5-50 lowercase
-# alphanumeric — NO hyphens). Suffix with org/project chars.
-acr_name = "agenticsdlcacr0001"
-
-# Cost knobs. Keep Basic + B1 for the starter; bump for production.
+# Cost knobs:
 # acr_sku              = "Standard"
 # app_service_plan_sku = "P1v3"
+# log_retention_days   = 30
 
-# log_retention_days = 30
-
-# Initial container image. The deploy workflow rolls this forward to
-# the freshly-built image tagged by SHA. Lifecycle.ignore_changes
-# keeps Terraform from reverting after deploy.
+# The deploy workflow updates the image after the initial provisioning apply.
 # container_image = "<acr>.azurecr.io/sample-app:<sha>"
-
-# tags = {
-#   project   = "agentic-sdlc-starter-pack"
-#   component = "app"
-#   owner     = "platform-eng@example.com"
-# }

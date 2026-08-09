@@ -76,7 +76,7 @@ workloads.
 .
 ├── app/                              # Sample Node/Express app (deploy target)
 ├── infra/
-│   ├── bootstrap/                    # One-time Terraform: deploy identity, tfstate backend
+│   ├── bootstrap/                    # One-time Terraform: scoped OIDC identities, tfstate backend
 │   │                                 # (a human runs this with `az login`)
 │   └── app/                          # CI-applied Terraform: ACR, App Service, Log Analytics
 ├── .github/
@@ -206,7 +206,7 @@ docker run --rm -p 3000:3000 agentic-sdlc-sample-app
 # --- Infra: bootstrap (one-time, human-run with `az login`) ---
 cd infra/bootstrap
 terraform init
-terraform apply                 # creates the Azure deploy identity + tfstate backend
+terraform apply                 # creates plan/apply/deploy identities + tfstate backend
 
 # --- Infra: app (run from CI under OIDC; or locally with `az login`) ---
 cd infra/app

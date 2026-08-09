@@ -35,6 +35,10 @@ if ! xargs shellcheck < "${shell_list}"; then
   fail "ShellCheck reported shell script issues"
 fi
 
+if ! ./scripts/tests/azure-oidc.test.sh; then
+  fail "Azure OIDC offline tests failed"
+fi
+
 find . \
   \( -path './.git' -o -path '*/node_modules' -o -path '*/.terraform' \) -prune \
   -o \( -path './.devcontainer/devcontainer.json' -o -path './.vscode/settings.json' \) -prune \

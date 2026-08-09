@@ -23,8 +23,8 @@ primitive you'll want to extend. APM is layered on top as the optional
   pulling 7 curated dependencies from
   [github/awesome-copilot](https://github.com/github/awesome-copilot)
   alongside the hand-authored examples.
-- ☁️ **Terraform infra for Azure App Service** with **OIDC federated
-  identity** — no long-lived cloud credentials in GitHub.
+- ☁️ **Terraform infra for Azure App Service** with separate plan, apply,
+  and deploy **OIDC federated identities** — no long-lived cloud credentials.
 - 🔐 **GHAS baseline** — CodeQL, Dependabot, Dependency Review, Secret
   Scanning + Push Protection.
 - 🚦 **Branch rulesets-as-code** with an evaluate → enforce graduation
@@ -42,7 +42,7 @@ primitive you'll want to extend. APM is layered on top as the optional
 gh repo create <owner>/<repo> --template <this-owner>/<this-repo> --private --clone
 cd <repo>
 
-# 2. One-time: provision the Azure deploy identity (OIDC, no secrets)
+# 2. One-time: provision scoped Azure plan/apply/deploy trust (no secrets)
 ./scripts/setup-azure-oidc.sh
 
 # 3. Smoke-test everything (lint + tests + terraform validate + apm audit)
@@ -71,7 +71,7 @@ cd <repo>
 | [`.github/workflows/`](./.github/workflows/) | CI/CD, GHAS, APM audit, OIDC deploy |
 | [`.github/rulesets/`](./.github/rulesets/) | Branch protection as code |
 | [`app/`](./app/) | Node.js 22 + Express sample app |
-| [`infra/bootstrap/`](./infra/bootstrap/) | One-time Terraform — deploy identity + tfstate |
+| [`infra/bootstrap/`](./infra/bootstrap/) | One-time Terraform — scoped OIDC identities + hardened tfstate |
 | [`infra/app/`](./infra/app/) | CI-applied Terraform — ACR, App Service, Log Analytics |
 | [`examples/`](./examples/) | Variants — Container Apps, Static Web Apps, OSS-hardening |
 | [`docs/`](./docs/) | Architecture, adoption, ownership, security, OIDC, governance |
@@ -94,9 +94,9 @@ A guided walkthrough of every `.github/` primitive lives in
    `apm-audit`, Terraform `fmt` + `validate`.
 4. **Human review** — branch protection requires at least one approving
    review. Squash-merge to `main`.
-5. **OIDC deploy** — `azure-deploy.yml` exchanges a short-lived OIDC
-   token for an Azure access token, builds + pushes the image to ACR,
-   updates the App Service. **No long-lived secrets in GitHub.**
+5. **OIDC deploy** — the `production` identity exchanges a short-lived
+   exact-subject token for an Azure access token, builds + pushes the image
+   to ACR, and updates only the scoped App Service.
 
 Full diagram + gate-by-gate breakdown:
 [`docs/agentic-sdlc.md`](./docs/agentic-sdlc.md).

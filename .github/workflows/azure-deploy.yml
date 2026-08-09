@@ -3,8 +3,8 @@
 # Trigger: push to main (after squash merge).
 #
 # What this workflow does:
-#   1. `azure/login` — OIDC, federated subject
-#      `repo:<owner>/<repo>:environment:production`.
+#   1. `azure/login` — deploy UAMI with the exact immutable repository +
+#      `production` environment subject (or explicit legacy compatibility).
 #   2. `az acr login` against the workload's ACR (created by
 #      `infra/app`).
 #   3. `docker build` + `docker push` (image tag = commit SHA).
@@ -60,16 +60,16 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Resolve workload settings
         id: workload
         run: |
-          # These four are written once by `infra-apply.yml`'s outputs
-          # OR by `scripts/setup-azure-oidc.sh`. They never live as
-          # secrets — they are repo *variables*.
+          # These values are precomputed by `scripts/setup-azure-oidc.sh`
+          # before the first infra apply. They are public identifiers stored
+          # as repository variables, not credentials.
           set -euo pipefail
           : "${AZURE_RESOURCE_GROUP:?must be set}"
           : "${AZURE_ACR_NAME:?must be set}"

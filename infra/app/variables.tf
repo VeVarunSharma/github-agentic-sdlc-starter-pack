@@ -1,58 +1,16 @@
-# Inputs sourced from infra/bootstrap outputs (set via repo variables
-# AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-# AZURE_RESOURCE_GROUP). The CI workflow passes them as -var=... so
-# Terraform never reads them from the OIDC token implicitly.
-
-variable "subscription_id" {
-  type        = string
-  description = "Azure subscription ID. From AZURE_SUBSCRIPTION_ID repo variable."
-}
-
-variable "tenant_id" {
-  type        = string
-  description = "Azure tenant ID. From AZURE_TENANT_ID repo variable."
-}
-
-variable "client_id" {
-  type        = string
-  description = "Client ID of the deploy MI. From AZURE_CLIENT_ID repo variable."
-}
-
-variable "resource_group_name" {
-  type        = string
-  description = "Resource group created by infra/bootstrap. From AZURE_RESOURCE_GROUP repo variable."
-}
-
-variable "location" {
-  type        = string
-  description = "Azure region. Should match the bootstrap RG's region."
-  default     = "eastus"
-}
-
-variable "name_prefix" {
-  type        = string
-  description = "Short prefix prepended to every resource name. Use kebab-case."
-  default     = "agentic-sdlc"
-
-  validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{2,16}$", var.name_prefix))
-    error_message = "name_prefix must be 3-17 chars, start with a letter, and contain only lowercase letters, digits, and hyphens."
-  }
-}
-
 variable "acr_name" {
   type        = string
-  description = "Globally-unique ACR name (5-50 lowercase alphanumeric)."
+  description = "Exact precomputed globally unique ACR name."
 
   validation {
     condition     = can(regex("^[a-z0-9]{5,50}$", var.acr_name))
-    error_message = "acr_name must be 5-50 chars, lowercase letters and digits only."
+    error_message = "acr_name must be 5-50 lowercase alphanumeric characters."
   }
 }
 
 variable "acr_sku" {
   type        = string
-  description = "ACR SKU. Basic for dev/test, Standard for production with geo-replication."
+  description = "Azure Container Registry SKU."
   default     = "Basic"
 
   validation {
@@ -63,19 +21,40 @@ variable "acr_sku" {
 
 variable "app_service_plan_sku" {
   type        = string
-  description = "App Service Plan SKU. B1 is the cheapest Linux container option; P1v3 for production."
+  description = "App Service Plan SKU."
   default     = "B1"
 }
 
 variable "container_image" {
   type        = string
-  description = "Initial container image to deploy (e.g. <acr>.azurecr.io/sample-app:<sha>). Updated on each deploy by the workflow."
+  description = "Initial container image. The deploy workflow updates this after provisioning."
   default     = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+}
+
+variable "deploy_principal_id" {
+  type        = string
+  description = "Object ID of the production deploy UAMI that receives app-scoped roles."
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.deploy_principal_id))
+    error_message = "deploy_principal_id must be a UUID."
+  }
+}
+
+variable "environment" {
+  type        = string
+  description = "Deployment environment segment used in resource names."
+  default     = "prod"
+
+  validation {
+    condition     = contains(["dev", "test", "staging", "prod"], var.environment)
+    error_message = "environment must be one of: dev, test, staging, prod."
+  }
 }
 
 variable "log_retention_days" {
   type        = number
-  description = "Log Analytics workspace retention in days. 30 is the free-tier minimum useful value."
+  description = "Log Analytics retention in days."
   default     = 30
 
   validation {
@@ -84,12 +63,54 @@ variable "log_retention_days" {
   }
 }
 
+variable "region_short" {
+  type        = string
+  description = "Lowercase short Azure region segment used in resource names."
+  default     = "eus"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{1,7}$", var.region_short))
+    error_message = "region_short must be 2-8 lowercase alphanumeric characters and start with a letter."
+  }
+}
+
+variable "resource_group_name" {
+  type        = string
+  description = "Exact workload resource group created by infra/bootstrap."
+
+  validation {
+    condition     = can(regex("^rg-[a-z0-9-]{3,80}$", var.resource_group_name))
+    error_message = "resource_group_name must follow the rg-<workload>-<environment>-<region-short> convention."
+  }
+}
+
 variable "tags" {
   type        = map(string)
-  description = "Tags applied to every resource."
+  description = "Tags applied to app resources."
   default = {
-    project   = "agentic-sdlc-starter-pack"
     component = "app"
     managedBy = "terraform"
+    project   = "agentic-sdlc-starter-pack"
+  }
+}
+
+variable "web_app_name" {
+  type        = string
+  description = "Exact precomputed globally unique Web App name."
+
+  validation {
+    condition     = length(var.web_app_name) >= 2 && length(var.web_app_name) <= 60 && can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.web_app_name))
+    error_message = "web_app_name must be 2-60 lowercase alphanumeric or hyphen characters and cannot start or end with a hyphen."
+  }
+}
+
+variable "workload_name" {
+  type        = string
+  description = "Short lowercase workload segment used in CAF resource names."
+  default     = "sdlcstarter"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{2,14}$", var.workload_name))
+    error_message = "workload_name must be 3-15 lowercase alphanumeric characters and start with a letter."
   }
 }

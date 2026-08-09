@@ -7,17 +7,15 @@
 #     `examples/**/infra/`  Terraform `fmt -check` + `validate` only.
 #                          We deliberately do NOT run `terraform plan`
 #                          on PRs because that would either:
-#                            (a) require subscription-scope credentials
-#                                accessible from `pull_request` runs
-#                                (the OIDC subject `pull_request` is
-#                                granted in `infra/bootstrap` only for
-#                                this static-validation purpose), or
+#                            (a) require workload credentials accessible
+#                                from `pull_request` runs (this template
+#                                deliberately has no PR federation), or
 #                            (b) cross the fork-safety boundary (a fork
 #                                PR can never safely receive an OIDC
 #                                token tied to the upstream identity).
-#                          Cloud-backed plans run in `infra-apply.yml`,
-#                          which is `workflow_dispatch` + the
-#                          `infra-apply` GitHub Environment.
+#                          Cloud-backed plans run in `infra-apply.yml` under
+#                          `infra-plan`; the exact saved plan is then applied
+#                          under approval-gated `infra-apply`.
 #
 # Conventions:
 #   * Concurrency cancel-in-progress on PR head ref so a force-push

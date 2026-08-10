@@ -1,7 +1,7 @@
 # Plan: Enterprise Copilot governance overlay
 
 **Owner:** Developer experience and enterprise administrators
-**Status:** Active
+**Status:** Completed
 **Started:** 2026-08-09
 **Last updated:** 2026-08-09
 
@@ -22,19 +22,19 @@
 
 ## Progress
 
-- [ ] Verify the dated GitHub settings inventory and client-support evidence.
-- [ ] Build and document the complete governance repository overlay.
-- [ ] Extend the root harness with deterministic overlay validation.
-- [ ] Integrate the enterprise tier into maintained root documentation.
-- [ ] Run focused and strict repository verification.
-- [ ] Commit, push, open the dependent pull request, and resolve caused checks.
+- [x] Verify the dated GitHub settings inventory and client-support evidence.
+- [x] Build and document the complete governance repository overlay.
+- [x] Extend the root harness with deterministic overlay validation.
+- [x] Integrate the enterprise tier into maintained root documentation.
+- [x] Run focused and cross-cutting repository verification.
+- [x] Commit, push, open the dependent pull request, and resolve caused checks.
 
 ## Decision log
 
 | Date | Decision | Rationale | Consequence |
 | --- | --- | --- | --- |
 | 2026-08-09 | Keep annotated JSONC canonical and commit generated strict JSON. | GitHub consumes strict JSON while administrators require setting-level rationale. | Drift becomes a blocking deterministic check. |
-| 2026-08-09 | Make bootstrap preview-only unless both `--apply` and interactive confirmation are supplied. | Enterprise mutation is privileged and must not occur through accidental script execution. | Automation prints reviewable REST operations before execution. |
+| 2026-08-09 | Make bootstrap preview-only unless both `--apply` and an exact `--confirm organization/repository` value are supplied. | Enterprise mutation is privileged and must not occur through accidental script execution. | Automation prints reviewable REST operations before execution. |
 | 2026-08-09 | Treat the overlay root as the future `.github-private` repository root. | Adopters must be able to copy it without removing a nested wrapper directory. | All paths and links are overlay-relative. |
 
 ## Risks and rollback
@@ -50,8 +50,10 @@
 
 | Command/check | Expected | Result |
 | --- | --- | --- |
-| Overlay renderer and `--check` in a clean copy | Generated JSON byte-matches | Pending |
-| Overlay validator and bootstrap safety tests | Policy, schemas, mappings, and no-mutation guarantees pass | Pending |
-| `npm --prefix tools/harness test && npm --prefix tools/harness run validate` | Root harness passes | Pending |
-| `./scripts/verify.sh --strict` | Cross-cutting repository verification passes | Pending |
-| Dependent pull request checks | Layer-caused checks green | Pending |
+| Overlay renderer and `--check` | Four generated JSON files byte-match | Passed |
+| Overlay validator and bootstrap safety tests | Policy, schemas, mappings, and no-mutation guarantees pass | 12/12 passed |
+| Current Copilot CLI plugin load | Contained plugin is discoverable | Passed with CLI 1.0.79-9 |
+| `npm --prefix tools/harness test && npm --prefix tools/harness run validate` | Root harness passes | 10/10 and validation passed |
+| `./scripts/validate-repository.sh` | Workflows, shell, JSON, pins, lockfiles, and overlay pass | Passed |
+| `./scripts/verify.sh --strict` | Cross-cutting repository verification | App, harness, Terraform, repository, and APM passed locally; local Docker registry TLS reset, while the equivalent clean-network PR Docker gate passed |
+| Dependent pull request checks | Layer-caused checks green | All required checks passed, including Docker and CodeQL |

@@ -31,7 +31,7 @@ must not override active documentation or code.
 | [`plans/README.md`](plans/README.md) | Plan policy and lifecycle | Engineering maintainers | Active | 2026-08-09 |
 | [`plans/template.md`](plans/template.md) | Execution-plan template | Engineering maintainers | Template | 2026-08-09 |
 | [`plans/active/README.md`](plans/active/README.md) | Active-plan directory contract | Engineering maintainers | Active | 2026-08-09 |
-| [`plans/active/2026-08-09-enterprise-copilot-governance.md`](plans/active/2026-08-09-enterprise-copilot-governance.md) | Layer 5 centralized enterprise Copilot governance implementation | Developer experience | Active | 2026-08-09 |
+| [`plans/completed/2026-08-09-enterprise-copilot-governance.md`](plans/completed/2026-08-09-enterprise-copilot-governance.md) | Layer 5 centralized enterprise Copilot governance implementation | Developer experience | Active | 2026-08-09 |
 | [`plans/completed/README.md`](plans/completed/README.md) | Completed-plan archive contract | Engineering maintainers | Active | 2026-08-09 |
 | [`decisions/README.md`](decisions/README.md) | ADR policy and index | Architecture owners | Active | 2026-08-09 |
 | [`decisions/template.md`](decisions/template.md) | ADR template | Architecture owners | Template | 2026-08-09 |

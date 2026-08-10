@@ -34,9 +34,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG_PATH = path.join(ROOT, 'config', 'render-inputs.json');
-const savedConfig = existsSync(CONFIG_PATH)
-  ? JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))
-  : {};
+let savedConfig = {};
+try {
+  savedConfig = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 
 // ─── Argument parsing ────────────────────────────────────────────────────────
 

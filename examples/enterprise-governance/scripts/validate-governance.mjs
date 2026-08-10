@@ -1,399 +1,25 @@
 #!/usr/bin/env node
-// scripts/validate-governance.mjs
-//
-// Comprehensive overlay validator. Run before committing any change.
-//
-// WHAT IT CHECKS
-//   1. JSONC parsing of all source files
-//   2. Generated JSON drift (rendered output matches committed file)
-//   3. Comment adjacency — every top-level and nested key has an adjacent comment
-//   4. Complete supported-key inventory (no unknown keys, dated support matrix)
-//   5. MCP safety (no http://, no latest, no name-only matchers)
-//   6. Strict marketplace / plugin resolution
-//   7. Agent and hook schema validation
-//   8. Team mappings — floor keys not weakened
-//   9. Link and path existence checks
-//  10. Script existence checks
-//  11. No undeclared placeholder tokens in generated JSON
-
-import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
-
-let errors = 0;
-let warnings = 0;
-
-function fail(msg) {
-  console.error(`  FAIL: ${msg}`);
-  errors++;
-}
-
-function warn(msg) {
-  console.warn(`  WARN: ${msg}`);
-  warnings++;
-}
-
-function ok(msg) {
-  console.log(`  OK:   ${msg}`);
-}
-
-function section(title) {
-  console.log(`\n── ${title}`);
-}
-
-// ─── JSONC parser (same as renderer) ────────────────────────────────────────
-
-function parseJsonc(src) {
-  // String-aware JSONC parser — skips comments correctly, even inside URLs.
-  let result = '';
-  let i = 0;
-  while (i < src.length) {
-    if (src[i] === '"') {
-      result += src[i++];
-      while (i < src.length) {
-        if (src[i] === '\\') { result += src[i] + src[i + 1]; i += 2; continue; }
-        if (src[i] === '"') { result += src[i++]; break; }
-        result += src[i++];
-      }
-    } else if (src[i] === '/' && src[i + 1] === '/') {
-      while (i < src.length && src[i] !== '\n') i++;
-    } else if (src[i] === '/' && src[i + 1] === '*') {
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
-      i += 2;
-    } else {
-      result += src[i++];
-    }
-  }
-  result = result.replace(/,(\s*[}\]])/g, '$1');
-  return JSON.parse(result);
-}
-
-function readJsonc(filePath) {
-  if (!existsSync(filePath)) {
-    fail(`File not found: ${filePath}`);
-    return null;
-  }
-  try {
-    return parseJsonc(readFileSync(filePath, 'utf8'));
-  } catch (err) {
-    fail(`JSONC parse error in ${filePath}: ${err.message}`);
-    return null;
-  }
-}
-
-function readJson(filePath) {
-  if (!existsSync(filePath)) {
-    fail(`File not found: ${filePath}`);
-    return null;
-  }
-  try {
-    return JSON.parse(readFileSync(filePath, 'utf8'));
-  } catch (err) {
-    fail(`JSON parse error in ${filePath}: ${err.message}`);
-    return null;
-  }
-}
-
-// ─── 1. Parse all source files ───────────────────────────────────────────────
-
-section('1. JSONC parsing');
-
-const MS_SOURCE_PATH = path.join(ROOT, 'copilot', 'managed-settings.source.jsonc');
-const TM_SOURCE_PATH = path.join(ROOT, 'copilot', 'team-mappings.source.jsonc');
-const MS_GEN_PATH    = path.join(ROOT, 'copilot', 'managed-settings.json');
-const TM_GEN_PATH    = path.join(ROOT, 'copilot', 'team-mappings.json');
-const MP_PATH        = path.join(ROOT, '.github', 'plugin', 'marketplace.json');
-const PLUGIN_PATH    = path.join(ROOT, 'plugins', 'agentic-sdlc-standards', 'plugin.json');
-
-const msSource = readJsonc(MS_SOURCE_PATH);
-const tmSource = readJsonc(TM_SOURCE_PATH);
-const msGen    = readJson(MS_GEN_PATH);
-const tmGen    = readJson(TM_GEN_PATH);
-const marketplace = readJson(MP_PATH);
-const plugin   = readJson(PLUGIN_PATH);
-
-if (msSource) ok('managed-settings.source.jsonc parses');
-if (tmSource) ok('team-mappings.source.jsonc parses');
-if (msGen)    ok('managed-settings.json parses');
-if (tmGen)    ok('team-mappings.json parses');
-if (marketplace) ok('.github/plugin/marketplace.json parses');
-if (plugin)   ok('plugins/agentic-sdlc-standards/plugin.json parses');
-
-// ─── 2. Generated file drift ─────────────────────────────────────────────────
-
-section('2. Generated file drift');
-
-// Verify that generated JSON files are valid JSON and have no placeholder tokens
-for (const [genPath, label] of [
-  [MS_GEN_PATH, 'managed-settings.json'],
-  [TM_GEN_PATH, 'team-mappings.json'],
-]) {
-  if (!existsSync(genPath)) {
-    fail(`${label} not found — run: node scripts/render-managed-settings.mjs`);
-    continue;
-  }
-  const content = readFileSync(genPath, 'utf8');
-  const placeholders = content.match(/\{\{[A-Z_]+\}\}/g);
-  if (placeholders) {
-    fail(`${label} contains unresolved placeholders: ${[...new Set(placeholders)].join(', ')}`);
-  } else {
-    ok(`${label} contains no unresolved placeholders`);
-  }
-}
-
-// ─── 3. Comment adjacency ─────────────────────────────────────────────────────
-
-section('3. Comment adjacency in managed-settings.source.jsonc');
-
-// Check that every top-level key and the critical nested keys have a comment
-// in the source file text. We do a line-by-line scan for comment blocks before
-// key occurrences, rather than parse the AST (which JSONC doesn't provide).
-if (existsSync(MS_SOURCE_PATH)) {
-  const srcText = readFileSync(MS_SOURCE_PATH, 'utf8');
-  const REQUIRED_COMMENTED_KEYS = [
-    'permissions', 'disableBypassPermissionsMode', 'model',
-    'enabledPlugins', 'extraKnownMarketplaces', 'strictKnownMarketplaces',
-    'telemetry', 'enabled', 'endpoint', 'endpointToken', 'protocol',
-    'captureContent', 'lockCaptureContent', 'serviceName', 'resourceAttributes',
-    'headers',
-    'remoteControl', 'requireSSO',
-    'allowedMcpServers', 'deniedMcpServers',
-    'sandbox', 'allowBypass', 'addCurrentWorkingDirectory',
-    'sandboxMcpServers', 'sandboxLspServers', 'gitAuth', 'ghAuth',
-    'allowDevToolAccess', 'userPolicy',
-    'filesystem', 'readwritePaths', 'readonlyPaths', 'deniedPaths',
-    'network', 'allowOutbound', 'allowLocalNetwork',
-    'seatbelt', 'keychainAccess',
-  ];
-  const lines = srcText.split('\n');
-  for (const key of REQUIRED_COMMENTED_KEYS) {
-    // Find a line containing "key": and check that a // comment precedes it
-    // within the previous 5 lines (allowing blank lines between)
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(`"${key}"`)) {
-        // Look back up to 8 lines for a comment
-        const lookback = lines.slice(Math.max(0, i - 8), i);
-        if (lookback.some(l => l.trim().startsWith('//'))) {
-          found = true;
-          break;
-        }
-      }
-    }
-    if (!found) {
-      fail(`Key "${key}" in managed-settings.source.jsonc has no adjacent comment`);
-    }
-  }
-  ok(`Comment adjacency checked for ${REQUIRED_COMMENTED_KEYS.length} keys`);
-}
-
-// ─── 4. Supported-key inventory ──────────────────────────────────────────────
-
-section('4. Supported-key inventory');
-
-// Known top-level keys as of 2026-08-09 (update when Copilot adds new keys)
-const KNOWN_TOPLEVEL_KEYS = new Set([
-  'permissions', 'enabledPlugins', 'extraKnownMarketplaces',
-  'strictKnownMarketplaces', 'telemetry', 'remoteControl',
-  'allowedMcpServers', 'deniedMcpServers', 'sandbox',
-]);
-
-if (msGen) {
-  const unknownKeys = Object.keys(msGen).filter(k => !KNOWN_TOPLEVEL_KEYS.has(k));
-  if (unknownKeys.length > 0) {
-    fail(`Unknown top-level keys in managed-settings.json: ${unknownKeys.join(', ')}`);
-    warn('If this is a new supported key, update KNOWN_TOPLEVEL_KEYS in validate-governance.mjs');
-  } else {
-    ok('All top-level keys are in the known inventory');
-  }
-}
-
-// ─── 5. MCP safety ───────────────────────────────────────────────────────────
-
-section('5. MCP safety');
-
-function checkMcpEntry(entry, listName, idx) {
-  // Entry must contain exactly one of: serverUrl, serverCommand, serverName.
-  // Per official docs, serverName-only matching is too broad — require serverUrl or serverCommand.
-  const hasServerUrl = !!entry.serverUrl;
-  const hasServerCommand = !!entry.serverCommand;
-  const hasServerName = !!entry.serverName;
-  const matcherCount = [hasServerUrl, hasServerCommand, hasServerName].filter(Boolean).length;
-
-  if (matcherCount === 0) {
-    fail(`${listName}[${idx}] has no matcher — must specify exactly one of serverUrl, serverCommand, serverName`);
-  } else if (matcherCount > 1) {
-    fail(`${listName}[${idx}] has multiple matchers — must specify exactly one of serverUrl, serverCommand, serverName`);
-  } else if (hasServerName && !hasServerUrl && !hasServerCommand) {
-    fail(`${listName}[${idx}] uses serverName-only matching — too broad; use serverUrl or serverCommand`);
-  }
-  // No HTTP (must be HTTPS or local stdio command)
-  if (entry.serverUrl && entry.serverUrl.startsWith('http://')) {
-    fail(`${listName}[${idx}] uses http:// in serverUrl — must use https:// for remote servers`);
-  }
-  // No "latest" in command args (supply-chain risk)
-  if (entry.args) {
-    for (const arg of entry.args) {
-      if (/@latest$/.test(arg)) {
-        fail(`${listName}[${idx}] uses @latest in args — pin to exact version`);
-      }
-    }
-  }
-  // serverCommand entries should have args for precision
-  if (hasServerCommand && !entry.args) {
-    fail(`${listName}[${idx}] has serverCommand without args — add args to pin exact package and version`);
-  }
-}
-
-if (msGen) {
-  (msGen.allowedMcpServers ?? []).forEach((e, i) => checkMcpEntry(e, 'allowedMcpServers', i));
-  (msGen.deniedMcpServers ?? []).forEach((e, i) => checkMcpEntry(e, 'deniedMcpServers', i));
-  ok('MCP server entries pass safety checks');
-}
-
-// ─── 6. Marketplace / plugin resolution ──────────────────────────────────────
-
-section('6. Marketplace and plugin resolution');
-
-if (marketplace && plugin && msGen) {
-  // Each enabledPlugin must resolve in marketplace
-  for (const pluginRef of (msGen.enabledPlugins ?? [])) {
-    const [pluginId, marketplaceId] = pluginRef.split('@');
-    const mpEntry = (marketplace.marketplaces ?? []).find(m => m.id === marketplaceId)
-                 ?? (marketplace.id === marketplaceId ? marketplace : null);
-    if (!mpEntry) {
-      fail(`enabledPlugin "${pluginRef}": marketplace "${marketplaceId}" not found in marketplace.json`);
-    } else {
-      ok(`Plugin "${pluginRef}" resolves in marketplace`);
-    }
-    // Plugin ID must match plugin.json id
-    if (plugin.id !== pluginId) {
-      fail(`Plugin ID mismatch: enabledPlugins references "${pluginId}" but plugin.json.id is "${plugin.id}"`);
-    } else {
-      ok(`Plugin ID matches: "${pluginId}"`);
-    }
-  }
-}
-
-// ─── 7. Agent schema validation ───────────────────────────────────────────────
-
-section('7. Agent schema validation');
-
-const AGENT_FILES = [
-  path.join(ROOT, 'agents', 'sdlc-planner.agent.md'),
-  path.join(ROOT, 'agents', 'pr-reviewer.agent.md'),
-  path.join(ROOT, 'agents', 'governance-gardener.agent.md'),
-  path.join(ROOT, '.github', 'agents', 'test-candidate.agent.md'),
-];
-
-for (const agentFile of AGENT_FILES) {
-  if (!existsSync(agentFile)) {
-    fail(`Agent file not found: ${agentFile}`);
-    continue;
-  }
-  const content = readFileSync(agentFile, 'utf8');
-  if (!content.includes('---')) {
-    fail(`${path.basename(agentFile)}: missing YAML frontmatter`);
-    continue;
-  }
-  if (!content.includes('name:')) {
-    fail(`${path.basename(agentFile)}: frontmatter missing "name:" field`);
-  } else {
-    ok(`${path.basename(agentFile)}: agent schema OK`);
-  }
-}
-
-// ─── 8. Team mapping floor key validation ────────────────────────────────────
-
-section('8. Team mapping floor key validation');
-
-// New shape: {"file.json": ["team-slug"]} — validate each referenced settings file.
-const NON_OVERRIDABLE_KEYS = new Set([
-  'permissions.disableBypassPermissionsMode',
-  'sandbox', 'sandbox.enabled', 'sandbox.allowBypass',
-  'sandbox.sandboxMcpServers', 'sandbox.sandboxLspServers',
-  'sandbox.gitAuth', 'sandbox.ghAuth', 'sandbox.allowDevToolAccess',
-  'sandbox.addCurrentWorkingDirectory',
-  'sandbox.userPolicy', 'sandbox.userPolicy.filesystem',
-  'sandbox.userPolicy.network', 'sandbox.userPolicy.seatbelt',
-  'telemetry', 'telemetry.enabled', 'telemetry.endpoint',
-  'telemetry.endpointToken', 'telemetry.protocol',
-  'telemetry.captureContent', 'telemetry.lockCaptureContent',
-  'telemetry.serviceName', 'telemetry.resourceAttributes',
-  'telemetry.headers',
-  'remoteControl', 'remoteControl.requireSSO',
-  'strictKnownMarketplaces',
-]);
-
-// FLOOR VALUES — team settings must not set these values on these keys
-const FLOOR_KEY_GUARDS = {
-  'sandbox.enabled':           false,
-  'sandbox.allowBypass':       true,
-  'sandbox.sandboxMcpServers': false,
-  'sandbox.sandboxLspServers': false,
-  'telemetry.lockCaptureContent': false,
-  'telemetry.captureContent':     true,
-  'strictKnownMarketplaces':      false,
-  'permissions.disableBypassPermissionsMode': 'enable',
-};
-
-function getNestedValue(obj, keyPath) {
-  return keyPath.split('.').reduce((acc, k) => acc?.[k], obj);
-}
-
-if (tmGen && typeof tmGen === 'object' && !Array.isArray(tmGen)) {
-  let teamFloorOk = true;
-  for (const [filePath, teams] of Object.entries(tmGen)) {
-    // Validate shape: value must be an array of strings
-    if (!Array.isArray(teams) || teams.some(t => typeof t !== 'string' || !t)) {
-      fail(`team-mappings.json: "${filePath}" value must be a non-empty array of team slug strings`);
-      teamFloorOk = false;
-    }
-    // Validate referenced file exists
-    const teamSettingsPath = path.join(ROOT, filePath);
-    if (!existsSync(teamSettingsPath)) {
-      fail(`team-mappings.json references missing file: ${filePath}`);
-      teamFloorOk = false;
-      continue;
-    }
-    // Parse team settings file and check for non-overridable keys and floor guards
-    let teamSettings;
-    try {
-      teamSettings = parseJsonc(readFileSync(teamSettingsPath, 'utf8'));
-    } catch (e) {
-      fail(`JSONC parse error in ${filePath}: ${e.message}`);
-      teamFloorOk = false;
-      continue;
-    }
-    // Check no non-overridable top-level keys appear
-    for (const topKey of Object.keys(teamSettings)) {
-      if (NON_OVERRIDABLE_KEYS.has(topKey)) {
-        fail(`${filePath}: contains non-overridable key "${topKey}"`);
-        teamFloorOk = false;
-      }
-    }
-    // Check floor value guards on nested keys that might appear through permissions
-    for (const [keyPath, forbiddenValue] of Object.entries(FLOOR_KEY_GUARDS)) {
-      const val = getNestedValue(teamSettings, keyPath);
-      if (val !== undefined && val === forbiddenValue) {
-        fail(`${filePath}: sets ${keyPath}=${JSON.stringify(val)} — floor value cannot be weakened`);
-        teamFloorOk = false;
-      }
-    }
-  }
-  if (teamFloorOk) ok('Team mapping floor keys validated');
-}
-
-// ─── 9. Link and path existence ───────────────────────────────────────────────
-
-section('9. Path existence');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const errors = [];
+const notes = [];
 
 const REQUIRED_FILES = [
-  'README.md', 'AGENTS.md', 'CODEOWNERS', 'package.json',
+  'README.md',
+  'AGENTS.md',
+  'CODEOWNERS',
+  'package.json',
+  'package-lock.json',
+  'config/render-inputs.json',
   'copilot/managed-settings.source.jsonc',
   'copilot/managed-settings.json',
   'copilot/team-mappings.source.jsonc',
@@ -408,11 +34,17 @@ const REQUIRED_FILES = [
   '.github/agents/README.md',
   '.github/agents/test-candidate.agent.md',
   '.github/plugin/marketplace.json',
+  '.github/rulesets/governance-branch-protect.json',
   '.github/workflows/overlay-validation.yml',
   'plugins/agentic-sdlc-standards/plugin.json',
+  'plugins/agentic-sdlc-standards/agents/sdlc-planner.agent.md',
+  'plugins/agentic-sdlc-standards/agents/pr-reviewer.agent.md',
+  'plugins/agentic-sdlc-standards/skills/governance-validation/SKILL.md',
+  'plugins/sdlc-pilot-tools/plugin.json',
+  'plugins/sdlc-pilot-tools/skills/pilot-readiness/SKILL.md',
   'scripts/render-managed-settings.mjs',
   'scripts/validate-governance.mjs',
-  'scripts/bootstrap.sh',
+  'scripts/bootstrap-enterprise-governance.sh',
   'docs/README.md',
   'docs/architecture/overview.md',
   'docs/architecture/mcp-threat-model.md',
@@ -424,70 +56,437 @@ const REQUIRED_FILES = [
   'docs/reference/team-override-model.md',
   'docs/reference/verification-checklist.md',
   'docs/reference/client-support-matrix.md',
+  'docs/reference/centralized-controls.md',
+  'docs/reference/copilot-business.md',
 ];
 
-for (const rel of REQUIRED_FILES) {
-  const abs = path.join(ROOT, rel);
-  if (!existsSync(abs)) {
-    fail(`Required file missing: ${rel}`);
-  } else {
-    ok(`Exists: ${rel}`);
-  }
+const TOP_LEVEL_KEYS = new Set([
+  'permissions',
+  'enabledPlugins',
+  'extraKnownMarketplaces',
+  'strictKnownMarketplaces',
+  'telemetry',
+  'remoteControl',
+  'allowedMcpServers',
+  'deniedMcpServers',
+  'sandbox',
+]);
+
+const DECLARED_TOKENS = new Set([
+  '{{ENTERPRISE_SLUG}}',
+  '{{ORG_SLUG}}',
+  '{{GOVERNANCE_REPO}}',
+  '{{GOVERNANCE_REF}}',
+  '{{OTLP_ENDPOINT}}',
+  '{{DEPLOY_ENV}}',
+  '{{INTERNAL_MCP_URL}}',
+  '{{PIONEER_MCP_URL}}',
+  '{{STANDARD_DEVELOPERS_TEAM}}',
+  '{{AI_PIONEERS_TEAM}}',
+  '{{ENTERPRISE_GOVERNANCE_TEAM}}',
+]);
+
+const AGENT_TOOL_ALIASES = new Set([
+  'read',
+  'search',
+  'edit',
+  'execute',
+  'agent',
+  'web',
+  'todo',
+]);
+
+function fail(message) {
+  errors.push(message);
 }
 
-// ─── 10. Script existence and executability ───────────────────────────────────
-
-section('10. Scripts');
-
-const REQUIRED_SCRIPTS = [
-  'scripts/render-managed-settings.mjs',
-  'scripts/validate-governance.mjs',
-  'scripts/bootstrap.sh',
-];
-
-for (const rel of REQUIRED_SCRIPTS) {
-  const abs = path.join(ROOT, rel);
-  if (!existsSync(abs)) {
-    fail(`Script missing: ${rel}`);
-  } else {
-    ok(`Script exists: ${rel}`);
-  }
+function walk(directory, predicate = () => true) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) return walk(target, predicate);
+    return predicate(target) ? [target] : [];
+  });
 }
 
-// ─── 11. No undeclared placeholders in generated JSON ────────────────────────
+function relative(target) {
+  return path.relative(ROOT, target).split(path.sep).join('/');
+}
 
-section('11. Undeclared placeholders');
-
-const { readdirSync: rdSync } = await import('node:fs');
-const teamsGenDir = path.join(ROOT, 'copilot', 'teams');
-const teamGenFiles = existsSync(teamsGenDir)
-  ? rdSync(teamsGenDir).filter(f => f.endsWith('.json') && !f.endsWith('.source.json'))
-  : [];
-
-for (const [genPath, label] of [
-  [MS_GEN_PATH, 'managed-settings.json'],
-  [TM_GEN_PATH, 'team-mappings.json'],
-  ...teamGenFiles.map(f => [path.join(teamsGenDir, f), `teams/${f}`]),
-]) {
-  if (existsSync(genPath)) {
-    const content = readFileSync(genPath, 'utf8');
-    const found = content.match(/\{\{[A-Z_]+\}\}/g);
-    if (found) {
-      fail(`${label} contains undeclared placeholders: ${[...new Set(found)].join(', ')}`);
+function parseJsonc(source) {
+  let output = '';
+  let index = 0;
+  while (index < source.length) {
+    if (source[index] === '"') {
+      output += source[index++];
+      while (index < source.length) {
+        if (source[index] === '\\') {
+          output += source[index] + source[index + 1];
+          index += 2;
+        } else {
+          output += source[index];
+          if (source[index++] === '"') break;
+        }
+      }
+    } else if (source[index] === '/' && source[index + 1] === '/') {
+      while (index < source.length && source[index] !== '\n') index++;
+    } else if (source[index] === '/' && source[index + 1] === '*') {
+      index += 2;
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        index++;
+      }
+      index += 2;
     } else {
-      ok(`${label}: no undeclared placeholders`);
+      output += source[index++];
+    }
+  }
+  return JSON.parse(output.replace(/,(\s*[}\]])/g, '$1'));
+}
+
+function readJson(target) {
+  try {
+    return JSON.parse(readFileSync(target, 'utf8'));
+  } catch (error) {
+    fail(`${relative(target)}: invalid JSON (${error.message})`);
+    return null;
+  }
+}
+
+function assertExactKeys(value, expected, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail(`${label}: expected an object`);
+    return;
+  }
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(wanted)) {
+    fail(`${label}: expected keys ${wanted.join(', ')}; found ${actual.join(', ')}`);
+  }
+}
+
+function checkCommentCoverage(target) {
+  const lines = readFileSync(target, 'utf8').split('\n');
+  let count = 0;
+  for (let index = 0; index < lines.length; index++) {
+    if (!/^\s*"[^"]+"\s*:/.test(lines[index])) continue;
+    count++;
+    let previous = index - 1;
+    while (previous >= 0 && lines[previous].trim() === '') previous--;
+    if (previous < 0 || !lines[previous].trim().startsWith('//')) {
+      fail(`${relative(target)}:${index + 1}: setting/subsetting lacks an adjacent comment`);
+    }
+  }
+  notes.push(`${relative(target)}: ${count} documented properties`);
+}
+
+function checkMcpEntries(entries, label, allowLatest) {
+  if (!Array.isArray(entries)) {
+    fail(`${label}: expected an array`);
+    return;
+  }
+  for (const [index, entry] of entries.entries()) {
+    const keys = Object.keys(entry);
+    if (keys.length !== 1 || !['serverUrl', 'serverCommand', 'serverName'].includes(keys[0])) {
+      fail(`${label}[${index}]: must contain exactly one matcher`);
+      continue;
+    }
+    if ('serverName' in entry) {
+      fail(`${label}[${index}]: serverName is renameable and forbidden as a security matcher`);
+    }
+    if ('serverUrl' in entry) {
+      if (typeof entry.serverUrl !== 'string' || !entry.serverUrl.startsWith('https://')) {
+        fail(`${label}[${index}]: serverUrl must be an exact HTTPS URL`);
+      }
+      if (entry.serverUrl.includes('*')) fail(`${label}[${index}]: wildcard URL is forbidden`);
+    }
+    if ('serverCommand' in entry) {
+      if (!Array.isArray(entry.serverCommand) || entry.serverCommand.length === 0) {
+        fail(`${label}[${index}]: serverCommand must be a non-empty exact argument array`);
+      } else if (!allowLatest && entry.serverCommand.some((part) => /@latest\b/.test(part))) {
+        fail(`${label}[${index}]: mutable @latest command is forbidden in allowlists`);
+      }
     }
   }
 }
 
-// ─── Summary ──────────────────────────────────────────────────────────────────
+for (const required of REQUIRED_FILES) {
+  if (!existsSync(path.join(ROOT, required))) fail(`${required}: required file is missing`);
+}
+const codeowners = readFileSync(path.join(ROOT, 'CODEOWNERS'), 'utf8');
+for (const token of codeowners.match(/\{\{[A-Z_]+\}\}/g) ?? []) {
+  if (token !== '{{ENTERPRISE_GOVERNANCE_TEAM}}') {
+    fail(`CODEOWNERS: undeclared template token ${token}`);
+  }
+}
 
-console.log(`\n${'─'.repeat(60)}`);
-if (errors === 0 && warnings === 0) {
-  console.log('✓ Overlay validation passed with 0 errors, 0 warnings.');
-} else if (errors === 0) {
-  console.log(`✓ Overlay validation passed with 0 errors, ${warnings} warning(s).`);
+const sourceFiles = walk(ROOT, (target) => target.endsWith('.jsonc'));
+for (const target of sourceFiles) {
+  const source = readFileSync(target, 'utf8');
+  try {
+    parseJsonc(source.replace(/\{\{[A-Z_]+\}\}/g, 'example'));
+  } catch (error) {
+    fail(`${relative(target)}: invalid JSONC (${error.message})`);
+  }
+  checkCommentCoverage(target);
+  for (const token of source.match(/\{\{[A-Z_]+\}\}/g) ?? []) {
+    if (!DECLARED_TOKENS.has(token)) fail(`${relative(target)}: undeclared token ${token}`);
+  }
+  if (/(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._-]{20,})/i.test(source)) {
+    fail(`${relative(target)}: secret-like value is forbidden`);
+  }
+}
+
+for (const target of walk(ROOT, (file) => file.endsWith('.json'))) readJson(target);
+
+const renderCheck = spawnSync(process.execPath, [
+  path.join(ROOT, 'scripts/render-managed-settings.mjs'),
+  '--check',
+], { cwd: ROOT, encoding: 'utf8' });
+if (renderCheck.status !== 0) {
+  fail(`generated JSON drift: ${(renderCheck.stderr || renderCheck.stdout).trim()}`);
+}
+
+const managed = readJson(path.join(ROOT, 'copilot/managed-settings.json'));
+const renderInputs = readJson(path.join(ROOT, 'config/render-inputs.json'));
+if (managed) {
+  const unknown = Object.keys(managed).filter((key) => !TOP_LEVEL_KEYS.has(key));
+  const missing = [...TOP_LEVEL_KEYS].filter((key) => !(key in managed));
+  if (unknown.length) fail(`managed-settings.json: unknown keys ${unknown.join(', ')}`);
+  if (missing.length) fail(`managed-settings.json: missing keys ${missing.join(', ')}`);
+
+  assertExactKeys(managed.permissions, ['disableBypassPermissionsMode', 'model'], 'permissions');
+  if (managed.permissions?.disableBypassPermissionsMode !== 'disable') {
+    fail('permissions.disableBypassPermissionsMode: secure floor must be "disable"');
+  }
+  assertExactKeys(managed.permissions?.model, ['overridable'], 'permissions.model');
+  if (managed.permissions?.model?.overridable !== 'auto') {
+    fail('permissions.model.overridable: baseline must be "auto"');
+  }
+
+  if (!managed.enabledPlugins || Array.isArray(managed.enabledPlugins)) {
+    fail('enabledPlugins: expected PLUGIN@MARKETPLACE boolean map');
+  } else if (managed.enabledPlugins['agentic-sdlc-standards@enterprise-standards'] !== true) {
+    fail('enabledPlugins: required enterprise standards plugin is not enabled');
+  }
+
+  for (const [name, marketplace] of Object.entries(managed.extraKnownMarketplaces ?? {})) {
+    assertExactKeys(marketplace, ['source'], `extraKnownMarketplaces.${name}`);
+    if (marketplace.source?.source !== 'github' ||
+        !/^[^/]+\/[^/]+$/.test(marketplace.source?.repo ?? '') ||
+        !/^[0-9a-f]{40}$/i.test(marketplace.source?.ref ?? '')) {
+      fail(`extraKnownMarketplaces.${name}: expected pinned GitHub repo source`);
+    }
+  }
+  if (!Array.isArray(managed.strictKnownMarketplaces) || managed.strictKnownMarketplaces.length !== 3) {
+    fail('strictKnownMarketplaces: expected exactly the three reviewed pinned sources');
+  } else {
+    for (const [index, source] of managed.strictKnownMarketplaces.entries()) {
+      assertExactKeys(source, ['source', 'repo', 'ref'], `strictKnownMarketplaces[${index}]`);
+      if (source.source !== 'github' || !/^[0-9a-f]{40}$/i.test(source.ref ?? '')) {
+        fail(`strictKnownMarketplaces[${index}]: expected pinned GitHub source`);
+      }
+    }
+  }
+
+  assertExactKeys(managed.telemetry, [
+    'enabled',
+    'endpoint',
+    'protocol',
+    'captureContent',
+    'lockCaptureContent',
+    'serviceName',
+    'resourceAttributes',
+    'headers',
+  ], 'telemetry');
+  if (managed.telemetry?.enabled !== false ||
+      managed.telemetry?.captureContent !== false ||
+      managed.telemetry?.lockCaptureContent !== true ||
+      Object.keys(managed.telemetry?.headers ?? {}).length !== 0) {
+    fail('telemetry: baseline must stay disabled, content-locked off, with empty headers');
+  }
+
+  assertExactKeys(managed.remoteControl, ['mode', 'githubDotComOrganizations'], 'remoteControl');
+  if (managed.remoteControl?.mode !== 'requireSSO' ||
+      !Array.isArray(managed.remoteControl?.githubDotComOrganizations) ||
+      managed.remoteControl.githubDotComOrganizations.length !== 1) {
+    fail('remoteControl: requireSSO with one configured organization is required');
+  }
+
+  assertExactKeys(managed.allowedMcpServers, ['overridable'], 'allowedMcpServers');
+  checkMcpEntries(managed.allowedMcpServers?.overridable, 'allowedMcpServers.overridable', false);
+  checkMcpEntries(managed.deniedMcpServers, 'deniedMcpServers', true);
+  if (!(managed.deniedMcpServers ?? []).some((entry) =>
+    entry.serverCommand?.some((part) => /@latest\b/.test(part)))) {
+    fail('deniedMcpServers: expected an exact mutable-command deny example');
+  }
+
+  assertExactKeys(managed.sandbox, [
+    'enabled',
+    'allowBypass',
+    'addCurrentWorkingDirectory',
+    'sandboxMcpServers',
+    'sandboxLspServers',
+    'gitAuth',
+    'ghAuth',
+    'allowDevToolAccess',
+    'userPolicy',
+  ], 'sandbox');
+  assertExactKeys(managed.sandbox?.userPolicy, ['filesystem', 'network', 'seatbelt'], 'sandbox.userPolicy');
+  assertExactKeys(managed.sandbox?.userPolicy?.filesystem, [
+    'readwritePaths',
+    'readonlyPaths',
+    'deniedPaths',
+  ], 'sandbox.userPolicy.filesystem');
+  assertExactKeys(managed.sandbox?.userPolicy?.network, [
+    'allowOutbound',
+    'allowLocalNetwork',
+  ], 'sandbox.userPolicy.network');
+  assertExactKeys(managed.sandbox?.userPolicy?.seatbelt, ['keychainAccess'], 'sandbox.userPolicy.seatbelt');
+  if (managed.sandbox?.enabled !== true ||
+      managed.sandbox?.allowBypass !== false ||
+      managed.sandbox?.sandboxMcpServers !== true ||
+      managed.sandbox?.sandboxLspServers !== true ||
+      managed.sandbox?.gitAuth !== true ||
+      managed.sandbox?.ghAuth !== true ||
+      managed.sandbox?.allowDevToolAccess !== true ||
+      managed.sandbox?.userPolicy?.network?.allowOutbound !== true ||
+      managed.sandbox?.userPolicy?.network?.allowLocalNetwork !== false ||
+      managed.sandbox?.userPolicy?.seatbelt?.keychainAccess !== false) {
+    fail('sandbox: baseline capability-direction values do not match the required posture');
+  }
+  for (const key of ['readwritePaths', 'readonlyPaths', 'deniedPaths']) {
+    if (!Array.isArray(managed.sandbox?.userPolicy?.filesystem?.[key]) ||
+        managed.sandbox.userPolicy.filesystem[key].length !== 0) {
+      fail(`sandbox.userPolicy.filesystem.${key}: portable baseline must be an empty array`);
+    }
+  }
+}
+
+const mappings = readJson(path.join(ROOT, 'copilot/team-mappings.json'));
+for (const [filename, teams] of Object.entries(mappings ?? {})) {
+  if (filename.includes('/') || !filename.endsWith('.json')) {
+    fail(`team-mappings.json: ${filename} must be a filename beneath copilot/teams`);
+  }
+  if (!Array.isArray(teams) || teams.length === 0 || teams.some((team) => !/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(team))) {
+    fail(`team-mappings.json: ${filename} must map to non-empty team slugs`);
+  }
+  const teamPolicy = readJson(path.join(ROOT, 'copilot/teams', filename));
+  if (!teamPolicy) continue;
+  const allowedKeys = new Set([
+    'model',
+    'allowedMcpServers',
+    'deniedMcpServers',
+    'enabledPlugins',
+    'extraKnownMarketplaces',
+  ]);
+  for (const key of Object.keys(teamPolicy)) {
+    if (!allowedKeys.has(key)) fail(`copilot/teams/${filename}: non-overridable key ${key}`);
+  }
+  if (teamPolicy.allowedMcpServers) {
+    checkMcpEntries(teamPolicy.allowedMcpServers, `copilot/teams/${filename}.allowedMcpServers`, false);
+  }
+}
+const pioneer = readJson(path.join(ROOT, 'copilot/teams/ai-platform-pioneers.json'));
+if (pioneer?.model !== 'unmanaged' ||
+    !Array.isArray(pioneer?.allowedMcpServers) ||
+    pioneer?.enabledPlugins?.['sdlc-pilot-tools@enterprise-standards'] !== true) {
+  fail('ai-platform-pioneers.json: expected unmanaged model, MCP specialization, and additive plugin');
 } else {
-  console.log(`✗ Overlay validation FAILED: ${errors} error(s), ${warnings} warning(s).`);
-  process.exit(1);
+  const serializedPioneer = new Set(pioneer.allowedMcpServers.map((entry) => JSON.stringify(entry)));
+  for (const baseline of managed?.allowedMcpServers?.overridable ?? []) {
+    if (!serializedPioneer.has(JSON.stringify(baseline))) {
+      fail('ai-platform-pioneers.json: specialization must repeat every enterprise MCP baseline matcher');
+    }
+  }
+  if (!pioneer.allowedMcpServers.some((entry) => entry.serverUrl === renderInputs?.pioneerMcpUrl)) {
+    fail('ai-platform-pioneers.json: exact pioneer MCP endpoint is missing');
+  }
+}
+
+const marketplace = readJson(path.join(ROOT, '.github/plugin/marketplace.json'));
+assertExactKeys(marketplace, ['name', 'owner', 'metadata', 'plugins'], 'marketplace.json');
+const marketplaceNames = new Set();
+for (const [index, entry] of (marketplace?.plugins ?? []).entries()) {
+  assertExactKeys(entry, ['name', 'description', 'version', 'source'], `marketplace.json.plugins[${index}]`);
+  marketplaceNames.add(entry.name);
+  const source = path.resolve(ROOT, entry.source);
+  if (!source.startsWith(`${path.join(ROOT, 'plugins')}${path.sep}`) ||
+      !existsSync(path.join(source, 'plugin.json'))) {
+    fail(`marketplace.json.plugins[${index}]: source must resolve to a contained plugin`);
+  }
+}
+for (const ref of Object.keys(managed?.enabledPlugins ?? {})) {
+  const [pluginName, marketplaceName] = ref.split('@');
+  if (marketplaceName !== marketplace?.name || !marketplaceNames.has(pluginName)) {
+    fail(`enabledPlugins: ${ref} does not resolve in the contained marketplace`);
+  }
+}
+
+for (const target of walk(path.join(ROOT, 'plugins'), (file) => file.endsWith('plugin.json'))) {
+  const manifest = readJson(target);
+  if (!/^[a-z0-9-]{1,64}$/.test(manifest?.name ?? '')) {
+    fail(`${relative(target)}: plugin name must be kebab-case`);
+  }
+  for (const field of ['agents', 'skills']) {
+    for (const configured of [manifest?.[field]].flat().filter(Boolean)) {
+      const resolved = path.resolve(path.dirname(target), configured);
+      if (!resolved.startsWith(`${path.dirname(target)}${path.sep}`) || !existsSync(resolved)) {
+        fail(`${relative(target)}: ${field} path escapes or does not exist (${configured})`);
+      }
+    }
+  }
+}
+
+for (const target of walk(ROOT, (file) => file.endsWith('.agent.md'))) {
+  const content = readFileSync(target, 'utf8');
+  const frontmatter = content.match(/(?:^|\n)---\n([\s\S]*?)\n---/);
+  if (!frontmatter || !/^description:\s*.+$/m.test(frontmatter[1])) {
+    fail(`${relative(target)}: agent requires description frontmatter`);
+  }
+  const tools = frontmatter?.[1]?.match(/^tools:\s*\[(.*)]$/m)?.[1]
+    .split(',')
+    .map((tool) => tool.trim().replaceAll('"', ''))
+    .filter(Boolean) ?? [];
+  for (const tool of tools) {
+    if (!AGENT_TOOL_ALIASES.has(tool) && !tool.includes('/')) {
+      fail(`${relative(target)}: unsupported tool alias ${tool}`);
+    }
+  }
+}
+
+for (const target of walk(path.join(ROOT, '.github/workflows'), (file) => /\.ya?ml$/.test(file))) {
+  for (const [index, line] of readFileSync(target, 'utf8').split('\n').entries()) {
+    const action = line.match(/^\s*(?:-\s*)?uses:\s*([^#\s]+)/)?.[1];
+    if (action && !action.startsWith('./') && !/@[0-9a-f]{40}$/i.test(action)) {
+      fail(`${relative(target)}:${index + 1}: action must use a full commit SHA`);
+    }
+  }
+}
+
+for (const target of walk(ROOT, (file) => file.endsWith('.md'))) {
+  const content = readFileSync(target, 'utf8');
+  for (const match of content.matchAll(/!?\[[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+    const link = match[1];
+    if (/^(https?:|mailto:|tel:|#)/.test(link)) continue;
+    const [pathname] = link.split('#', 1);
+    if (!existsSync(path.resolve(path.dirname(target), decodeURIComponent(pathname)))) {
+      fail(`${relative(target)}: broken relative link ${link}`);
+    }
+  }
+}
+
+for (const target of walk(ROOT, (file) => /\.(?:json|md|mjs|sh|yml|jsonc)$/.test(file))) {
+  const content = readFileSync(target, 'utf8');
+  for (const token of content.match(/\{\{[A-Z_]+\}\}/g) ?? []) {
+    if (!DECLARED_TOKENS.has(token)) fail(`${relative(target)}: undeclared template token ${token}`);
+    if (target.endsWith('.json')) fail(`${relative(target)}: generated strict JSON contains ${token}`);
+  }
+}
+
+if (errors.length) {
+  for (const error of errors) process.stderr.write(`ERROR: ${error}\n`);
+  process.stderr.write(`${errors.length} governance validation failure(s)\n`);
+  process.exitCode = 1;
+} else {
+  process.stdout.write(`Enterprise governance validation passed (${notes.join('; ')}).\n`);
 }

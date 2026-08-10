@@ -24,20 +24,13 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install --prefix . --ignore-scripts
-        working-directory: ${{ github.workspace }}
+        run: npm ci --ignore-scripts
 
       - name: Run unit tests
         run: node --test scripts/test/*.test.mjs
 
       - name: Render check (verify generated files match source)
-        run: |
-          node scripts/render-managed-settings.mjs \
-            --enterprise example-org \
-            --organization example-org \
-            --governance-repo .github-private \
-            --otlp-endpoint https://otel.example.internal \
-            --check
+        run: npm run check
 
       - name: Full overlay validation
-        run: node scripts/validate-governance.mjs
+        run: npm run validate

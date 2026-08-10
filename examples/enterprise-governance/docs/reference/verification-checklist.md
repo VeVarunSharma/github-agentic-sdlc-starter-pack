@@ -21,7 +21,7 @@ took effect correctly and no regressions occurred. Capture evidence
 - [ ] `node scripts/validate-governance.mjs` exits 0 with 0 errors
 - [ ] `node scripts/render-managed-settings.mjs --check` exits 0
 - [ ] `node --test scripts/test/*.test.mjs` exits 0
-- [ ] No unresolved `{{PLACEHOLDER}}` tokens in `managed-settings.json` or `team-mappings.json`
+- [ ] No unresolved render tokens in `managed-settings.json` or `team-mappings.json`
 - [ ] All required files exist (see validator check 9)
 
 ### GitHub settings sync
@@ -47,8 +47,9 @@ For each affected setting, verify on at least one representative client:
 
 - [ ] No secret values in `managed-settings.json` (no real tokens, bearer headers)
 - [ ] Floor keys are intact: `sandbox.enabled=true`, `allowBypass=false`,
-  `captureContent=false`, `lockCaptureContent=true`, `strictKnownMarketplaces=true`
-- [ ] MCP allowlist: no `http://` entries, no `@latest` pinning
+  `captureContent=false`, `lockCaptureContent=true`, and exact pinned strict marketplaces
+- [ ] MCP allowlist: exact HTTPS/command entries with no `@latest`; denylist
+      blocks the reviewed mutable `@latest` variant
 - [ ] CODEOWNERS file intact and governance team is listed
 
 ### Post-change monitoring (first 24 hours)

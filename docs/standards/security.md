@@ -16,6 +16,11 @@
 - Validate before shell/path use; avoid dynamic shell construction entirely.
 - Keep cloud MCP tool allowlists explicit and read-only. GitHub and localhost
   Playwright are built in; do not duplicate them.
+- For centralized Copilot policy, require reviewed exact URL/command MCP
+  matchers, deny mutable command variants, lock prompt-content capture off, and
+  protect annotated JSONC plus generated strict JSON against drift. Cloud agent
+  third-party MCP remains governed separately by enterprise AI Controls and
+  repository/custom-agent tool allowlists.
 - Never log or commit secrets, tokens, Terraform state, `.env` files, or PII.
 - Preserve secure headers, bounded request bodies, non-root containers, and
   health-verified rollback.
@@ -30,4 +35,6 @@ weaken a gate. Report vulnerabilities through [`../../SECURITY.md`](../../SECURI
 
 `tools/harness`, app tests, Terraform tests, repository validation, CodeQL,
 Dependency Review, secret scanning, APM audit, and the deployment smoke test
-form the baseline. Prose alone is not evidence that a control works.
+form the baseline. The enterprise overlay adds render, schema, support-matrix,
+matcher, team, plugin, agent, hook, ruleset, bootstrap-safety, and byte-drift
+checks. Prose alone is not evidence that a control works.

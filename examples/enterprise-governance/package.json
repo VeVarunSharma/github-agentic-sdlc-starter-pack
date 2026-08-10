@@ -10,7 +10,7 @@
     "test": "node --test scripts/test/*.test.mjs",
     "render": "node scripts/render-managed-settings.mjs",
     "validate": "node scripts/validate-governance.mjs",
-    "check": "node scripts/render-managed-settings.mjs --check --enterprise example-org --organization example-org --governance-repo .github-private --otlp-endpoint https://otel.example.internal"
+    "check": "node scripts/render-managed-settings.mjs --check"
   },
   "devDependencies": {}
 }

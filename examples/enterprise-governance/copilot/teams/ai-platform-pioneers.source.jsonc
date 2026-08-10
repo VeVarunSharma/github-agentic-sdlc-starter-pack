@@ -26,34 +26,45 @@
 //     non-overridable keys — intentionally ABSENT from this file.
 //
 {
-  "permissions": {
-    // model: "unmanaged" — team members select the model per task.
-    // Justified for AI research teams who need to compare model outputs.
-    // Risk accepted: wider model access; mitigated by sandbox and deny lists.
-    "model": "unmanaged"
-  },
+  // model: "unmanaged" — team members select the model per task. Team files
+  // use this top-level key after `permissions.model` is marked overridable.
+  "model": "unmanaged",
 
-  // allowedMcpServers — ADDITIVE over the enterprise allowlist.
-  // Enterprise-level entries (Learn, GitHub, internal standards) remain.
-  // This adds the AI-pilots-specific internal endpoint.
+  // allowedMcpServers — team override. Repeat the enterprise default entries
+  // before adding the pioneer endpoint so specialization does not drop them.
   "allowedMcpServers": [
     {
-      // AI Pilots internal MCP — experimental tooling, firewall-restricted.
-      // {{INTERNAL_MCP_URL}} is the base; the pilot endpoint is a sub-path.
-      // Must be HTTPS; server requires corp SSO authentication.
-      "serverUrl": "{{INTERNAL_MCP_URL}}/pilots",
-      "name": "AI Pilots Tooling (internal)"
+      // Microsoft Learn exact reviewed remote endpoint.
+      "serverUrl": "https://learn.microsoft.com/api/mcp"
+    },
+    {
+      // Enterprise standards exact reviewed remote endpoint.
+      "serverUrl": "{{INTERNAL_MCP_URL}}"
+    },
+    {
+      // Azure MCP exact reviewed local invocation.
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@azure/mcp@3.0.0-beta.33",
+        "server",
+        "start"
+      ]
+    },
+    {
+      // AI Pilots exact internal MCP endpoint, firewall and SSO restricted.
+      "serverUrl": "{{PIONEER_MCP_URL}}"
     }
   ],
 
   // enabledPlugins — ADDITIVE: adds pilot tools on top of enterprise baseline.
   // Enterprise plugin "agentic-sdlc-standards@enterprise-standards" remains.
-  "enabledPlugins": [
+  "enabledPlugins": {
     // sdlc-pilot-tools: access to experimental AI-assisted tools under
     // evaluation. Only available in the "enterprise-standards" marketplace
     // and only enabled for this team until promoted to enterprise-wide.
-    "sdlc-pilot-tools@enterprise-standards"
-  ]
+    "sdlc-pilot-tools@enterprise-standards": true
+  }
   // extraKnownMarketplaces: not needed — pilot plugin is in the enterprise
   // marketplace already. If a pilot marketplace were required, add here.
   //

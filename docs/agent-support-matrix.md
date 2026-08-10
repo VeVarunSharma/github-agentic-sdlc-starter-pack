@@ -19,6 +19,20 @@ No client automatically reads every surface.
 | `.github/mcp/mcp.json` | Reference only; paste in repository MCP settings | Not auto-loaded | Not auto-loaded | Not auto-loaded |
 | `.vscode/mcp.json` | No | No | Yes | Editor integration only |
 
+Centralized managed settings are key-dependent rather than uniformly supported:
+
+| Managed setting family | GitHub cloud agent | Copilot CLI | VS Code | GitHub Copilot app |
+| --- | --- | --- | --- | --- |
+| Server-managed policy source | Supported keys only | Yes | Yes | Yes |
+| MCP allow/deny lists | No; use enterprise AI Controls plus repository/custom-agent tool allowlists | Yes | Yes | Yes |
+| Bypass-prompt controls | Not applicable to an autonomous agent | Yes | Yes | Yes |
+| Telemetry managed setting | No | Yes | Yes | No |
+
+The authoritative dated key-by-key inventory is maintained in
+[`examples/enterprise-governance/docs/reference/client-support-matrix.md`](../examples/enterprise-governance/docs/reference/client-support-matrix.md).
+MDM outranks server-managed settings, then file-based and user settings;
+sandbox restrictions combine most-restrictively.
+
 GitHub repository MCP settings are shared by cloud agent and code review.
 GitHub's read-only repository MCP and localhost-only Playwright MCP are built in.
 Configured tools can run autonomously, so custom servers require explicit

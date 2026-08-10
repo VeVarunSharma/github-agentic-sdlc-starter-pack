@@ -1,28 +1,11 @@
 {
-  "id": "agentic-sdlc-standards",
-  "name": "Agentic SDLC Standards",
-  "description": "Enterprise shared SDLC agents, skills, and governance hooks for all teams in the organization",
+  "name": "agentic-sdlc-standards",
+  "description": "Enterprise SDLC planning, read-only review, and governance validation guidance",
   "version": "1.0.0",
-  "publisher": "Enterprise Platform Team",
-  "license": "UNLICENSED",
-  "agents": [
-    {
-      "id": "enterprise-sdlc-planner",
-      "file": "../../agents/sdlc-planner.agent.md",
-      "description": "Read-only implementation planner with governance constraint awareness"
-    },
-    {
-      "id": "enterprise-pr-reviewer",
-      "file": "../../agents/pr-reviewer.agent.md",
-      "description": "Read-only PR reviewer for security, correctness, and governance"
-    },
-    {
-      "id": "governance-gardener",
-      "file": "../../agents/governance-gardener.agent.md",
-      "description": "Overlay validator and documentation fix proposer"
-    }
-  ],
-  "skills": [],
-  "hooks": [],
-  "mcpServers": []
+  "author": {
+    "name": "Enterprise AI Governance"
+  },
+  "license": "MIT",
+  "agents": "agents/",
+  "skills": "skills/"
 }

@@ -11,17 +11,17 @@
 Team policy overrides in `copilot/team-mappings.json` allow specific GitHub
 teams to receive settings that differ from the enterprise baseline.
 
-### Least-restrictive merge
+### Overridable and additive keys
 
-GitHub merges enterprise and team policies using a **least-restrictive** rule:
+The enterprise marks `permissions.model`, `allowedMcpServers`, and optionally
+other supported keys with `{ "overridable": <default> }`. A mapped team file
+supplies the value for that key; omission falls back to the enterprise default.
+`enabledPlugins` and `extraKnownMarketplaces` are the additive exceptions.
 
-- If the enterprise setting allows X and the team setting allows Y, the user
-  gets X ∪ Y (the union of both).
-- If the enterprise disables a feature and the team enables it, the user
-  gets the enabled state.
-
-**This means team overrides can only ADD capabilities, never remove them.**
-A team cannot block something the enterprise baseline allows.
+When a user belongs to multiple mapped teams, GitHub combines the team values
+least-restrictively and applies them beneath enterprise/platform decisions. The
+pioneer MCP policy therefore repeats the three default allow entries before
+adding its fourth endpoint.
 
 ### Enterprise precedence (floor keys)
 
@@ -37,7 +37,7 @@ override can weaken:
 | `sandbox.sandboxLspServers` | `true` | LSP stays sandboxed |
 | `telemetry.captureContent` | `false` | Prompt confidentiality |
 | `telemetry.lockCaptureContent` | `true` | User cannot override captureContent |
-| `strictKnownMarketplaces` | `true` | No rogue marketplace injection |
+| `strictKnownMarketplaces` | exact pinned source array | No rogue marketplace injection |
 
 The renderer and validator both reject team mappings that attempt to set any
 floor key to a weaker value.
@@ -63,7 +63,7 @@ See `copilot/team-mappings.source.jsonc` for annotated policies.
 | Team | Model | Extra plugins | Telemetry | Sandbox deviations |
 |---|---|---|---|---|
 | developers | Auto | None | Disabled | None |
-| ai-platform-pioneers | unmanaged | sdlc-pilot-tools | Enabled | allowDevToolAccess=true |
+| ai-platform-pioneers | unmanaged | sdlc-pilot-tools | Inherits disabled | None |
 
 ---
 
@@ -71,8 +71,8 @@ See `copilot/team-mappings.source.jsonc` for annotated policies.
 
 If a user belongs to multiple teams with different override policies:
 - GitHub applies all team overrides using least-restrictive merge.
-- Example: if team A allows model X and team B allows model Y, the user
-  can choose between X and Y.
+- Example: membership in a less restrictive pioneer policy can make that
+  reviewed specialization effective.
 - Floor keys still apply to all teams regardless.
 
 ---
@@ -80,7 +80,7 @@ If a user belongs to multiple teams with different override policies:
 ## Time-bounding overrides
 
 Policy exceptions (especially for pilots) should be time-bounded:
-- Document an expiry date in the team entry's `_comment` field.
+- Document an expiry date in adjacent JSONC comments and the change issue.
 - Schedule a governance review issue for the expiry date.
 - Remove the override when the justification no longer applies.
 

@@ -31,6 +31,8 @@ top-level map, see [AGENTS.md](../AGENTS.md).
 | [reference/team-override-model.md](reference/team-override-model.md) | Team policy override merge model |
 | [reference/verification-checklist.md](reference/verification-checklist.md) | Verification evidence checklist |
 | [reference/client-support-matrix.md](reference/client-support-matrix.md) | Dated client capability matrix |
+| [reference/centralized-controls.md](reference/centralized-controls.md) | UI and REST controls outside managed settings |
+| [reference/copilot-business.md](reference/copilot-business.md) | Dedicated Copilot Business deployment caveat |
 
 ## Maintenance
 

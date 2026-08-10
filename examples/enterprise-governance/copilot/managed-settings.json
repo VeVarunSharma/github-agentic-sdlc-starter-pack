@@ -1,57 +1,76 @@
 {
-  "allowedMcpServers": [
-    {
-      "name": "Microsoft Learn",
-      "serverUrl": "https://learn.microsoft.com/mcp"
-    },
-    {
-      "name": "Enterprise Standards",
-      "serverUrl": "https://mcp.example.internal/standards"
-    },
-    {
-      "name": "GitHub",
-      "serverUrl": "https://api.githubcopilot.com/mcp/"
-    },
-    {
-      "args": [
-        "@github/mcp-docs-server@0.1.4"
-      ],
-      "name": "GitHub Docs (local)",
-      "serverCommand": "npx"
-    }
-  ],
+  "allowedMcpServers": {
+    "overridable": [
+      {
+        "serverUrl": "https://learn.microsoft.com/api/mcp"
+      },
+      {
+        "serverUrl": "https://mcp.example.internal/standards"
+      },
+      {
+        "serverCommand": [
+          "npx",
+          "-y",
+          "@azure/mcp@3.0.0-beta.33",
+          "server",
+          "start"
+        ]
+      }
+    ]
+  },
   "deniedMcpServers": [
     {
-      "name": "OpenAI API (blocked)",
-      "serverUrl": "https://api.openai.com/"
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@azure/mcp@latest",
+        "server",
+        "start"
+      ]
+    }
+  ],
+  "enabledPlugins": {
+    "agentic-sdlc-standards@enterprise-standards": true
+  },
+  "extraKnownMarketplaces": {
+    "awesome-copilot": {
+      "source": {
+        "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2",
+        "repo": "github/awesome-copilot",
+        "source": "github"
+      }
     },
-    {
-      "name": "Anthropic API (blocked)",
-      "serverUrl": "https://api.anthropic.com/"
+    "copilot-plugins": {
+      "source": {
+        "ref": "04d7d960289e78f8d98509bdacc368e85069170d",
+        "repo": "github/copilot-plugins",
+        "source": "github"
+      }
+    },
+    "enterprise-standards": {
+      "source": {
+        "ref": "1111111111111111111111111111111111111111",
+        "repo": "example-org/.github-private",
+        "source": "github"
+      }
     }
-  ],
-  "enabledPlugins": [
-    "agentic-sdlc-standards@enterprise-standards"
-  ],
-  "extraKnownMarketplaces": [
-    {
-      "id": "enterprise-standards",
-      "url": "https://raw.githubusercontent.com/example-org/.github-private/main/.github/plugin/marketplace.json"
-    }
-  ],
+  },
   "permissions": {
     "disableBypassPermissionsMode": "disable",
-    "model": "Auto"
+    "model": {
+      "overridable": "auto"
+    }
   },
   "remoteControl": {
-    "requireSSO": {
-      "organization": "example-org"
-    }
+    "githubDotComOrganizations": [
+      "example-org"
+    ],
+    "mode": "requireSSO"
   },
   "sandbox": {
     "addCurrentWorkingDirectory": true,
     "allowBypass": false,
-    "allowDevToolAccess": false,
+    "allowDevToolAccess": true,
     "enabled": true,
     "ghAuth": true,
     "gitAuth": true,
@@ -59,18 +78,9 @@
     "sandboxMcpServers": true,
     "userPolicy": {
       "filesystem": {
-        "deniedPaths": [
-          "~/.ssh",
-          "~/.git-credentials",
-          "~/.gnupg"
-        ],
-        "readonlyPaths": [
-          "/etc/ssl/certs",
-          "/System/Library/Keychains/SystemRootCertificates.keychain"
-        ],
-        "readwritePaths": [
-          "~/.npm"
-        ]
+        "deniedPaths": [],
+        "readonlyPaths": [],
+        "readwritePaths": []
       },
       "network": {
         "allowLocalNetwork": false,
@@ -81,12 +91,27 @@
       }
     }
   },
-  "strictKnownMarketplaces": true,
+  "strictKnownMarketplaces": [
+    {
+      "ref": "1111111111111111111111111111111111111111",
+      "repo": "example-org/.github-private",
+      "source": "github"
+    },
+    {
+      "ref": "04d7d960289e78f8d98509bdacc368e85069170d",
+      "repo": "github/copilot-plugins",
+      "source": "github"
+    },
+    {
+      "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2",
+      "repo": "github/awesome-copilot",
+      "source": "github"
+    }
+  ],
   "telemetry": {
     "captureContent": false,
     "enabled": false,
     "endpoint": "https://otel.example.internal/v1/traces",
-    "endpointToken": "DEMO_TOKEN_NOT_FOR_PRODUCTION",
     "headers": {},
     "lockCaptureContent": true,
     "protocol": "http/protobuf",

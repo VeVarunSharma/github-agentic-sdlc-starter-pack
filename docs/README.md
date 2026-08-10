@@ -31,10 +31,12 @@ must not override active documentation or code.
 | [`plans/README.md`](plans/README.md) | Plan policy and lifecycle | Engineering maintainers | Active | 2026-08-09 |
 | [`plans/template.md`](plans/template.md) | Execution-plan template | Engineering maintainers | Template | 2026-08-09 |
 | [`plans/active/README.md`](plans/active/README.md) | Active-plan directory contract | Engineering maintainers | Active | 2026-08-09 |
+| [`plans/active/2026-08-09-enterprise-copilot-governance.md`](plans/active/2026-08-09-enterprise-copilot-governance.md) | Layer 5 centralized enterprise Copilot governance implementation | Developer experience | Active | 2026-08-09 |
 | [`plans/completed/README.md`](plans/completed/README.md) | Completed-plan archive contract | Engineering maintainers | Active | 2026-08-09 |
 | [`decisions/README.md`](decisions/README.md) | ADR policy and index | Architecture owners | Active | 2026-08-09 |
 | [`decisions/template.md`](decisions/template.md) | ADR template | Architecture owners | Template | 2026-08-09 |
 | [`decisions/0001-canonical-agent-context.md`](decisions/0001-canonical-agent-context.md) | Canonical context hierarchy | Architecture owners | Active | 2026-08-09 |
+| [`decisions/0002-annotated-enterprise-governance.md`](decisions/0002-annotated-enterprise-governance.md) | Annotated source and deterministic strict JSON for centralized Copilot policy | Enterprise AI administrators | Active | 2026-08-09 |
 | [`spike-a-apm-roundtrip.md`](spike-a-apm-roundtrip.md) | Original APM investigation | Developer experience | Historical | 2026-08-09 |
 | [`spike-b-copilot-assignment.md`](spike-b-copilot-assignment.md) | Original assignment API research | Developer experience | Historical | 2026-08-09 |
 | [`spike-c-rulesets.md`](spike-c-rulesets.md) | Original ruleset research | Repository administrators | Historical | 2026-08-09 |

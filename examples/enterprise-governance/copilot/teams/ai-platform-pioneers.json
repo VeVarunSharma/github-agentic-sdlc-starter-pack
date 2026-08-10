@@ -1,14 +1,26 @@
 {
   "allowedMcpServers": [
     {
-      "name": "AI Pilots Tooling (internal)",
-      "serverUrl": "https://mcp.example.internal/standards/pilots"
+      "serverUrl": "https://learn.microsoft.com/api/mcp"
+    },
+    {
+      "serverUrl": "https://mcp.example.internal/standards"
+    },
+    {
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@azure/mcp@3.0.0-beta.33",
+        "server",
+        "start"
+      ]
+    },
+    {
+      "serverUrl": "https://mcp.example.internal/pioneers"
     }
   ],
-  "enabledPlugins": [
-    "sdlc-pilot-tools@enterprise-standards"
-  ],
-  "permissions": {
-    "model": "unmanaged"
-  }
+  "enabledPlugins": {
+    "sdlc-pilot-tools@enterprise-standards": true
+  },
+  "model": "unmanaged"
 }

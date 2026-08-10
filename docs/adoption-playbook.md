@@ -60,6 +60,20 @@ If you only want one piece — say, the `oidc-rotation` skill or the
 self-contained and has an `<!-- HAND-AUTHORED -->` marker plus inline
 comments explaining what it does and where Copilot reads it.
 
+## Mode 4 — Establish centralized enterprise Copilot governance
+
+For GitHub Enterprise Cloud administrators, copy the contents of
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) to the
+root of the organization repository selected as the `.github-private`
+managed-settings source. Do not copy the enclosing example directory and do not
+nested it under another `.github-private` directory.
+
+Follow the overlay README to render adopter-specific values, review the dry-run
+bootstrap preview, protect governance paths, pilot with selected teams, and
+select the source. The application starter cannot activate these controls from
+this repository. Enterprise AI Controls that are not represented by
+`managed-settings.json` remain separate UI or REST administration tasks.
+
 ## Org-wide rollout playbook
 
 For platform / DevEx teams rolling this out across many repos:
@@ -78,6 +92,9 @@ For platform / DevEx teams rolling this out across many repos:
 6. **Refresh upstream** quarterly: `apm update` against the latest
    awesome-copilot HEAD; review changes; tag a new version of your
    fork.
+7. **Review centralized Copilot policy** against the dated support matrix in
+   `examples/enterprise-governance/`; render and validate changes through its
+   protected `.github-private` review flow.
 
 ## Pre-flight checklist
 

@@ -7,6 +7,11 @@ repository** (typically named `.github-private`) in their GitHub Enterprise
 organization. The contents land at the repository root — there is no nested
 `.github-private/` folder inside.
 
+Before the first pull request, replace the declared
+`{{ENTERPRISE_GOVERNANCE_TEAM}}` token in `CODEOWNERS` with the real
+`@organization/team-slug`. Render real organization/endpoints only in the
+copied private governance repository, never in this public starter example.
+
 > **Scope:** This overlay adds enterprise-wide Copilot managed settings, team
 > policy customizations, a plugin marketplace, governance agents, branch
 > rulesets, bootstrap automation, and operations documentation on top of any
@@ -21,22 +26,26 @@ organization. The contents land at the repository root — there is no nested
 # 1. Clone or fork this overlay into your .github-private repository
 git clone <this-repo> && cd enterprise-governance
 
-# 2. Install dependencies (Node 22 required)
-npm install
+# 2. Install dependencies deterministically (Node 22 required)
+npm ci
 
 # 3. Render managed settings with your deployment values
 node scripts/render-managed-settings.mjs \
   --enterprise YOUR_ENTERPRISE_SLUG \
   --organization YOUR_ORG_SLUG \
   --governance-repo .github-private \
-  --otlp-endpoint https://otel.example.internal
+  --governance-ref FULL_REVIEWED_COMMIT_SHA \
+  --otlp-endpoint https://otel.example.internal \
+  --internal-mcp-url https://mcp.example.internal/standards \
+  --pioneer-mcp-url https://mcp.example.internal/pioneers \
+  --standard-team developers \
+  --pioneer-team ai-platform-pioneers
 
 # 4. Validate the overlay (also run in CI)
 node scripts/validate-governance.mjs
 
 # 5. Bootstrap GitHub settings (dry-run by default; add --apply to execute)
-bash scripts/bootstrap.sh --enterprise YOUR_ENTERPRISE_SLUG \
-  --organization YOUR_ORG_SLUG
+bash scripts/bootstrap-enterprise-governance.sh --help
 ```
 
 ---
@@ -50,12 +59,14 @@ examples/enterprise-governance/          ← copy THIS directory to .github-priv
 ├── CODEOWNERS                           ← code ownership declarations
 ├── package.json                         ← Node 22 project for scripts and tests
 ├── package-lock.json
+├── config/render-inputs.json            ← committed non-secret render inputs
 │
 ├── copilot/
 │   ├── managed-settings.source.jsonc    ← annotated source of truth (EDIT THIS)
 │   ├── managed-settings.json            ← generated strict JSON (DO NOT EDIT)
 │   ├── team-mappings.source.jsonc       ← annotated team policy overrides
-│   └── team-mappings.json               ← generated strict JSON
+│   ├── team-mappings.json               ← generated strict JSON
+│   └── teams/                           ← annotated/generated team policies
 │
 ├── agents/                              ← enterprise-wide custom agents
 │   ├── sdlc-planner.agent.md
@@ -76,12 +87,14 @@ examples/enterprise-governance/          ← copy THIS directory to .github-priv
 │
 ├── plugins/
 │   └── agentic-sdlc-standards/
-│       └── plugin.json                  ← plugin manifest for enterprise standards
+│       ├── plugin.json                  ← current plugin manifest
+│       ├── agents/                      ← contained portable agents
+│       └── skills/                      ← contained validation skill
 │
 ├── scripts/
 │   ├── render-managed-settings.mjs      ← renderer + deployment token substitution
 │   ├── validate-governance.mjs          ← comprehensive overlay validator
-│   ├── bootstrap.sh                     ← safe dry-run GitHub bootstrap
+│   ├── bootstrap-enterprise-governance.sh ← safe dry-run GitHub bootstrap
 │   └── test/
 │       ├── render.test.mjs
 │       ├── validate.test.mjs
@@ -101,7 +114,9 @@ examples/enterprise-governance/          ← copy THIS directory to .github-priv
         ├── plugin-agent-lifecycle.md    ← plugin + agent lifecycle
         ├── team-override-model.md       ← team policy override model
         ├── verification-checklist.md    ← verification evidence checklist
-        └── client-support-matrix.md    ← dated client capability matrix
+        ├── client-support-matrix.md    ← dated client capability matrix
+        ├── centralized-controls.md     ← UI/REST controls outside managed JSON
+        └── copilot-business.md         ← dedicated Business caveat
 ```
 
 ---
@@ -114,7 +129,7 @@ examples/enterprise-governance/          ← copy THIS directory to .github-priv
 | Team policy overrides | `copilot/team-mappings.json` | Server (least-restrictive merge) |
 | Plugin marketplace | `.github/plugin/marketplace.json` | Server/client resolution |
 | Branch protection | `.github/rulesets/*.json` | GitHub ruleset import |
-| Bootstrap identity/RBAC | `scripts/bootstrap.sh` | Human-run, dry-run default |
+| Bootstrap governance | `scripts/bootstrap-enterprise-governance.sh` | Human-run, dry-run default |
 | Overlay CI validation | `.github/workflows/overlay-validation.yml` | GitHub Actions |
 
 See [`docs/architecture/overview.md`](docs/architecture/overview.md) for data

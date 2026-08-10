@@ -45,7 +45,7 @@ in managed settings and to the sandbox configuration that isolates MCP servers.
 and tricks users into enabling it.
 
 **Mitigation:**
-- `strictKnownMarketplaces: true` restricts plugin resolution to known marketplaces.
+- `strictKnownMarketplaces` lists only exact pinned sources, restricting plugin resolution.
 - `allowedMcpServers` is an explicit allowlist — unknown URLs are blocked.
 - Internal marketplace only (via `extraKnownMarketplaces`).
 
@@ -93,7 +93,8 @@ in a later minor/patch version.
 **Mitigation:**
 - Pin to exact package version (e.g. `@github/mcp-docs-server@0.1.4`), not
   `@latest`.
-- The renderer rejects `@latest` in args (validated in `validate-governance.mjs`).
+- The validator rejects `@latest` in allowlists and requires the exact mutable
+  Azure MCP `@latest` variant to remain in the denylist.
 - Review package updates via Dependabot or manual audit before pin updates.
 
 **Residual risk:** Medium — pinning reduces risk but does not eliminate it;
@@ -141,7 +142,7 @@ See [`docs/architecture/overview.md`](overview.md) for details.
 |---|---|---|
 | MCP allowlist | `allowedMcpServers` | T1, T5 |
 | MCP denylist | `deniedMcpServers` | T1, T5 |
-| Strict marketplaces | `strictKnownMarketplaces: true` | T1 |
+| Strict marketplaces | Exact pinned `strictKnownMarketplaces` source array | T1 |
 | Sandbox isolation | `sandbox.enabled: true` | T2, T3, T5 |
 | No local network | `allowLocalNetwork: false` | T2 |
 | Filesystem deny | `deniedPaths` | T3 |

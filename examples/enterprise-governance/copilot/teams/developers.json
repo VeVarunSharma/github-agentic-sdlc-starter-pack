@@ -1,5 +1,3 @@
 {
-  "permissions": {
-    "model": "Auto"
-  }
+  "model": "auto"
 }

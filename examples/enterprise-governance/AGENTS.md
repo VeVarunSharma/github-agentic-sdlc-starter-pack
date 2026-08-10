@@ -18,11 +18,11 @@ automation. All maintained files under `copilot/`, `agents/`, `plugins/`, and
   `false`. No team mapping may weaken sandbox, prompt capture, or strict
   marketplaces.
 - Never commit secrets, bearer tokens, OTLP credentials, or resolved private
-  endpoint URLs into this repository. Use `{{PLACEHOLDER}}` tokens in source;
+  endpoint URLs into this repository. Use declared render tokens in source;
   the renderer injects values at deploy time.
 - Pin all GitHub Actions to full commit SHAs. No `@latest`, `@v2`, or
   `@main` references.
-- Bootstrap script (`scripts/bootstrap.sh`) is dry-run by default. Never
+- Bootstrap script (`scripts/bootstrap-enterprise-governance.sh`) is dry-run by default. Never
   execute `--apply` without explicit human confirmation and verified identifiers.
 - All changes to `copilot/`, `agents/`, or `plugins/` require code-owner
   review from `@{{ENTERPRISE_GOVERNANCE_TEAM}}`.
@@ -35,7 +35,7 @@ automation. All maintained files under `copilot/`, `agents/`, `plugins/`, and
 | Team policy change | `copilot/team-mappings.source.jsonc` | `scripts/render-managed-settings.mjs` |
 | Agent change | `docs/reference/plugin-agent-lifecycle.md` | `agents/*.agent.md` |
 | Plugin/marketplace | `docs/reference/plugin-agent-lifecycle.md` | `plugins/*/plugin.json` |
-| Bootstrap/RBAC | `scripts/bootstrap.sh` | `docs/runbooks/rollout.md` |
+| Bootstrap/governance | `scripts/bootstrap-enterprise-governance.sh` | `docs/runbooks/rollout.md` |
 | Security review | `docs/architecture/mcp-threat-model.md` | — |
 | Rollout/rollback | `docs/runbooks/rollout.md` | `docs/runbooks/incident-rollback.md` |
 | Settings reference | `docs/reference/settings-reference.md` | `copilot/managed-settings.source.jsonc` |

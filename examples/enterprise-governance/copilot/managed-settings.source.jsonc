@@ -5,7 +5,7 @@
 // HOW THIS FILE WORKS
 //   • This is a JSONC (JSON with Comments) source file.
 //   • Run `node scripts/render-managed-settings.mjs` to validate comments,
-//     substitute {{PLACEHOLDER}} tokens, and emit the strict
+//     substitute declared render tokens, and emit the strict
 //     `copilot/managed-settings.json` that GitHub consumes.
 //   • Never hand-edit `managed-settings.json`; always edit here and render.
 //
@@ -62,15 +62,19 @@
     //   Specific model IDs (e.g. "gpt-4o") can be set to lock the model,
     //   but will stop working when that model is deprecated.
     //   Applies to: CLI, VS Code, Copilot app, cloud agent.
-    //   Team overridable: YES — teams may set a named model or "unmanaged".
-    //   "unmanaged": users choose the model freely (useful for AI/pilot teams).
-    "model": "Auto"
+    //   Team overridable: YES — teams may set "unmanaged". GitHub requires
+    //   this wrapper before a protected team file can specialize the key.
+    "model": {
+      // overridable: Auto remains the default unless a mapped team file
+      // explicitly supplies another supported value.
+      "overridable": "auto"
+    }
   },
 
   // ─────────────────────────────────────────────────────────────────────────
   // enabledPlugins
-  //   List of plugin identifiers that are activated for all users.
-  //   Format: "PLUGIN_ID@MARKETPLACE_ID" — both IDs must resolve in
+  //   Map of plugin identifiers to required enablement state for all users.
+  //   Format: "PLUGIN_NAME@MARKETPLACE_NAME": true — both names resolve in
   //   extraKnownMarketplaces or the built-in GitHub marketplace.
   //   Applies to: CLI, VS Code, Copilot app, cloud agent.
   //   Team overridable: ADDITIVE only — teams can add plugins but cannot
@@ -78,56 +82,101 @@
   //   Baseline: include the enterprise standards plugin so all users
   //   receive shared SDLC agents, skills, and hooks automatically.
   // ─────────────────────────────────────────────────────────────────────────
-  "enabledPlugins": [
+  "enabledPlugins": {
     // agentic-sdlc-standards: the enterprise plugin defined in
     // plugins/agentic-sdlc-standards/plugin.json and listed in
     // .github/plugin/marketplace.json. Provides shared SDLC planner,
     // PR reviewer, and governance hooks to all teams.
-    "agentic-sdlc-standards@enterprise-standards"
-  ],
+    "agentic-sdlc-standards@enterprise-standards": true
+  },
 
   // ─────────────────────────────────────────────────────────────────────────
   // extraKnownMarketplaces
   //   Additional plugin marketplaces that Copilot will resolve plugins from,
   //   SUPPLEMENTING (not replacing) any built-in marketplace list.
-  //   Format: array of marketplace descriptor objects with at minimum
-  //   an "id" and a "url" pointing to a marketplace.json endpoint.
+  //   Format: a named map of source descriptors. GitHub sources support
+  //   immutable refs and discover `.github/plugin/marketplace.json`.
   //   Applies to: CLI, VS Code, Copilot app, cloud agent.
   //   Team overridable: ADDITIVE only — teams can add marketplaces but
   //   cannot remove enterprise-level marketplace entries.
   //   Security: only list internal or thoroughly vetted marketplaces.
   //   Prefer strictKnownMarketplaces to also BLOCK unknown marketplaces.
   // ─────────────────────────────────────────────────────────────────────────
-  "extraKnownMarketplaces": [
-    {
-      // id: unique identifier for this marketplace, used in plugin
-      // references ("PLUGIN@MARKETPLACE_ID"). Must match the id field
-      // in the referenced marketplace.json.
-      "id": "enterprise-standards",
-
-      // url: HTTPS URL to the marketplace.json index for this marketplace.
-      // Must be reachable by Copilot clients. Internal URLs are fine
-      // for private marketplaces.
-      // {{GOVERNANCE_MARKETPLACE_URL}} is substituted at render time to
-      // the raw URL of .github/plugin/marketplace.json in the governance
-      // repository (e.g. https://raw.githubusercontent.com/{{ORG_SLUG}}/
-      // {{GOVERNANCE_REPO}}/main/.github/plugin/marketplace.json).
-      "url": "{{GOVERNANCE_MARKETPLACE_URL}}"
+  "extraKnownMarketplaces": {
+    // enterprise-standards: the marketplace contained in this governance
+    // repository, pinned to the adopter's reviewed governance commit.
+    "enterprise-standards": {
+      // source: wrapper required by the marketplace settings schema.
+      "source": {
+        // source: resolve the marketplace from a GitHub repository.
+        "source": "github",
+        // repo: selected organization governance repository.
+        "repo": "{{ORG_SLUG}}/{{GOVERNANCE_REPO}}",
+        // ref: adopter-supplied reviewed 40-character commit SHA.
+        "ref": "{{GOVERNANCE_REF}}"
+      }
+    },
+    // copilot-plugins: GitHub's official first-party marketplace.
+    "copilot-plugins": {
+      // source: wrapper required by the marketplace settings schema.
+      "source": {
+        // source: resolve the marketplace from GitHub.
+        "source": "github",
+        // repo: official GitHub Copilot plugins repository.
+        "repo": "github/copilot-plugins",
+        // ref: reviewed commit current on 2026-08-09.
+        "ref": "04d7d960289e78f8d98509bdacc368e85069170d"
+      }
+    },
+    // awesome-copilot: GitHub's official standards marketplace.
+    "awesome-copilot": {
+      // source: wrapper required by the marketplace settings schema.
+      "source": {
+        // source: resolve the marketplace from GitHub.
+        "source": "github",
+        // repo: official GitHub awesome-copilot repository.
+        "repo": "github/awesome-copilot",
+        // ref: reviewed commit current on 2026-08-09.
+        "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2"
+      }
     }
-  ],
+  },
 
   // ─────────────────────────────────────────────────────────────────────────
   // strictKnownMarketplaces
-  //   When true: Copilot ONLY resolves plugins from marketplaces listed in
-  //   extraKnownMarketplaces plus the built-in GitHub marketplace.
-  //   Unknown marketplace URLs are rejected.
-  //   When false: users can add arbitrary marketplace URLs.
-  //   Baseline: true — prevents supply-chain injection via rogue marketplaces.
+  //   Copilot ONLY resolves plugins from sources matching this exact array.
+  //   An empty array locks plugins down completely. The baseline repeats all
+  //   reviewed sources above with immutable refs to fail closed.
   //   Applies to: CLI, VS Code, Copilot app, cloud agent.
   //   Team overridable: NO — non-overridable security floor; team mappings
   //   MUST NOT set this to false.
   // ─────────────────────────────────────────────────────────────────────────
-  "strictKnownMarketplaces": true,
+  "strictKnownMarketplaces": [
+    {
+      // source: exact governance marketplace source type.
+      "source": "github",
+      // repo: selected organization governance repository.
+      "repo": "{{ORG_SLUG}}/{{GOVERNANCE_REPO}}",
+      // ref: adopter-supplied reviewed governance commit SHA.
+      "ref": "{{GOVERNANCE_REF}}"
+    },
+    {
+      // source: exact official marketplace source type.
+      "source": "github",
+      // repo: official first-party Copilot marketplace.
+      "repo": "github/copilot-plugins",
+      // ref: reviewed commit current on 2026-08-09.
+      "ref": "04d7d960289e78f8d98509bdacc368e85069170d"
+    },
+    {
+      // source: exact official standards marketplace source type.
+      "source": "github",
+      // repo: official awesome-copilot marketplace.
+      "repo": "github/awesome-copilot",
+      // ref: reviewed commit current on 2026-08-09.
+      "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2"
+    }
+  ],
 
   // ─────────────────────────────────────────────────────────────────────────
   // telemetry
@@ -157,20 +206,11 @@
     //   Only active when enabled=true.
     "endpoint": "{{OTLP_ENDPOINT}}",
 
-    // endpointToken
-    //   Bearer token for authenticating to the OTLP endpoint.
-    //   This MUST remain a {{PLACEHOLDER}} in the source file — the renderer
-    //   will substitute the value from a secure environment variable at
-    //   deploy time. The generated JSON will contain the resolved value,
-    //   which is why the generated file must NOT be committed publicly.
-    //   Only active when enabled=true.
-    "endpointToken": "{{OTLP_ENDPOINT_TOKEN}}",
-
     // protocol
     //   Transport protocol for OTLP export.
     //   "http/protobuf": OTLP over HTTP with protobuf encoding (recommended
     //     for broad compatibility with collectors like the OTel Collector).
-    //   "grpc": OTLP over gRPC (lower overhead but requires gRPC support).
+    //   "http/json": OTLP over HTTP with JSON encoding.
     "protocol": "http/protobuf",
 
     // captureContent
@@ -212,13 +252,10 @@
 
     // headers
     //   Additional HTTP headers sent with every OTLP request.
-    //   Use for additional authentication (e.g. API key headers) if the
-    //   endpoint requires them beyond the endpointToken bearer auth.
-    //   Baseline: empty object — the endpointToken covers authentication
-    //   for most OTLP deployments. Add headers only when the collector
-    //   requires them.
-    //   SECURITY: never put secret values here in the source file.
-    //   Use {{PLACEHOLDER}} tokens that the renderer resolves.
+    //   Authentication headers are supported, but the committed baseline stays
+    //   empty so no bearer token or credential is rendered into this repo.
+    //   Inject collector authentication outside version control if telemetry
+    //   is enabled; never place secret header values in this source.
     "headers": {}
   },
 
@@ -230,17 +267,12 @@
   //   Team overridable: NO — non-overridable; enterprise controls all CRC.
   // ─────────────────────────────────────────────────────────────────────────
   "remoteControl": {
-    // requireSSO
-    //   Requires users to authenticate via SSO (SAML/OIDC) before the
-    //   remote-control channel activates. Prevents unauthenticated
-    //   remote-control connections.
-    //   Baseline: true with the org slug, ensuring all CRC connections
-    //   are authenticated against your IdP.
-    "requireSSO": {
-      // organization: the GitHub organization slug that performs SSO
-      // authentication. {{ORG_SLUG}} is substituted at render time.
-      "organization": "{{ORG_SLUG}}"
-    }
+    // mode: require SSO authorization before a controlling client can attach
+    // to a session hosted on this device.
+    "mode": "requireSSO",
+    // githubDotComOrganizations: exact organizations whose SSO authorization
+    // satisfies requireSSO; the renderer supplies the selected organization.
+    "githubDotComOrganizations": ["{{ORG_SLUG}}"]
   },
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -252,8 +284,9 @@
   //   Cloud agent MCP: governed by Enterprise AI Controls (third-party MCP)
   //   and repository/custom-agent allowlists. First-party GitHub MCP is
   //   always available to cloud agent and is exempt from these lists.
-  //   Team overridable: YES — teams may add entries; least-restrictive merge
-  //   applies. A server must satisfy every active allowlist to be permitted.
+  //   Team overridable: YES — a protected team file may replace this default
+  //   with another reviewed list. Multi-team values combine least-restrictively;
+  //   every active managed source allowlist still must permit the server.
   //
   //   MCP EVALUATION ORDER (per official docs):
   //     1. Built-in GitHub MCP servers: always allowed regardless of lists.
@@ -274,39 +307,36 @@
   //   Security: use exact serverUrl values. Avoid wildcards that allow
   //   unexpected subpaths. Never use http:// endpoints or @latest packages.
   // ─────────────────────────────────────────────────────────────────────────
-  "allowedMcpServers": [
-    {
+  "allowedMcpServers": {
+    // overridable: protected team policies can select another reviewed list.
+    // A specialized list must repeat this baseline before adding endpoints.
+    "overridable": [
+      {
       // Microsoft Learn documentation server — read-only, first-party.
       // Provides context from official Microsoft documentation for Azure,
       // M365, and GitHub. Safe to allow enterprise-wide.
-      "serverUrl": "https://learn.microsoft.com/mcp",
-      "name": "Microsoft Learn"
-    },
-    {
+        "serverUrl": "https://learn.microsoft.com/api/mcp"
+      },
+      {
       // Internal governance MCP server — provides access to enterprise
       // policy documents and standards. {{INTERNAL_MCP_URL}} is resolved
       // at render time to your internal endpoint.
       // Must be HTTPS. Must require authentication (handled by the server).
-      "serverUrl": "{{INTERNAL_MCP_URL}}",
-      "name": "Enterprise Standards"
-    },
-    {
-      // GitHub MCP (remote) — provides read access to GitHub repositories,
-      // issues, and PRs via the official GitHub MCP server.
-      // Use exact serverUrl to prevent connecting to rogue endpoints.
-      "serverUrl": "https://api.githubcopilot.com/mcp/",
-      "name": "GitHub"
-    },
-    {
-      // Local stdio server: node-based documentation tools installed
-      // via npm. serverCommand matches on the executable name.
-      // Pin the exact package version in your toolchain to prevent
-      // supply-chain attacks via version drift. Never allow @latest.
-      "serverCommand": "npx",
-      "args": ["@github/mcp-docs-server@0.1.4"],
-      "name": "GitHub Docs (local)"
-    }
-  ],
+        "serverUrl": "{{INTERNAL_MCP_URL}}"
+      },
+      {
+        // Azure MCP local server — exact executable and arguments match the
+        // reviewed starter toolchain; mutable versions do not match.
+        "serverCommand": [
+          "npx",
+          "-y",
+          "@azure/mcp@3.0.0-beta.33",
+          "server",
+          "start"
+        ]
+      }
+    ]
+  },
 
   // ─────────────────────────────────────────────────────────────────────────
   // deniedMcpServers
@@ -315,23 +345,22 @@
   //   "deny from any source blocks": if enterprise OR a team deny-lists a
   //   server, it is blocked even if another team would allow it.
   //   Applies to: same clients as allowedMcpServers (CLI, VS Code, app).
-  //   Team overridable: YES — teams may add deny entries. Least-restrictive
-  //   merge applies, but deny is always more restrictive than allow.
+  //   Team overridable: NO in this baseline because the value is not wrapped
+  //   with `overridable`; every team inherits the mutable-command block.
   //   Entry shape: exactly one of serverUrl/serverCommand/serverName (same
   //   as allowedMcpServers). Prefer serverUrl for remote servers.
   // ─────────────────────────────────────────────────────────────────────────
   "deniedMcpServers": [
     {
-      // Block the public OpenAI API endpoint — prevents exfiltration of
-      // code or proprietary content to external AI APIs via MCP.
-      // This does NOT block the Copilot GitHub AI endpoint.
-      "serverUrl": "https://api.openai.com/",
-      "name": "OpenAI API (blocked)"
-    },
-    {
-      // Block generic anthropic.com endpoint — same rationale.
-      "serverUrl": "https://api.anthropic.com/",
-      "name": "Anthropic API (blocked)"
+      // Block the mutable Azure MCP invocation even if a lower policy allows
+      // it. Deny precedence prevents `@latest` from bypassing the exact pin.
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@azure/mcp@latest",
+        "server",
+        "start"
+      ]
     }
   ],
 
@@ -361,11 +390,9 @@
     "allowBypass": false,
 
     // addCurrentWorkingDirectory
-    //   true: the current working directory (repo root) is automatically
-    //   added to the sandbox readwrite allow-list so the agent can build,
-    //   test, and commit code in the repository it was invoked from.
-    //   This is the minimum viable access for most SDLC tasks.
-    //   Baseline: true — without this, agents cannot write code.
+    //   Capability-direction semantics: true leaves normal CWD access
+    //   available; false would prohibit automatic repository access.
+    //   Baseline: true — preserves ordinary build, test, and edit workflows.
     "addCurrentWorkingDirectory": true,
 
     // sandboxMcpServers
@@ -383,27 +410,24 @@
     "sandboxLspServers": true,
 
     // gitAuth
-    //   true: the sandbox passes through Git authentication credentials
-    //   (SSH keys, credential helpers, GITHUB_TOKEN) so the agent can
-    //   clone, fetch, and push within allowed scopes.
-    //   Baseline: true — required for agents to perform Git operations.
+    //   Capability-direction semantics: true leaves GitHub token injection
+    //   available; false would prohibit authenticated Git HTTPS operations.
+    //   Baseline: true — preserves scope-limited Git authentication.
     "gitAuth": true,
 
     // ghAuth
-    //   true: the sandbox passes through the `gh` CLI authentication
-    //   token so the agent can interact with GitHub APIs (issues, PRs,
-    //   checks) within declared RBAC scopes.
-    //   Baseline: true — required for agents to create PRs, etc.
+    //   Capability-direction semantics: true leaves `gh` token injection
+    //   available; false would prohibit GitHub CLI authentication.
+    //   Baseline: true — preserves scope-limited GitHub operations.
     "ghAuth": true,
 
     // allowDevToolAccess
-    //   false: the sandbox blocks access to development tool sockets and
-    //   debug interfaces (e.g. Chrome DevTools Protocol).
-    //   Baseline: false — prevents MCP/LSP servers from attaching debuggers
-    //   or reading memory via dev-tool interfaces.
-    //   Some teams (platform/AI pioneers) may enable for debugging; this
-    //   requires a team-level override with explicit justification.
-    "allowDevToolAccess": false,
+    //   Capability-direction semantics: true leaves development-tool config,
+    //   caches, registries, and toolchains available; false would prohibit
+    //   them and can break package restore or repository builds.
+    //   Baseline: true — preserves builds while other controls still block
+    //   local-network and keychain access.
+    "allowDevToolAccess": true,
 
     // userPolicy
     //   Fine-grained filesystem and network access declarations for the
@@ -415,54 +439,32 @@
       //   Filesystem access control for the sandbox.
       "filesystem": {
         // readwritePaths
-        //   Paths the agent MAY read and write. Use relative paths anchored
-        //   to the repository root where possible.
-        //   Baseline: current directory (added via addCurrentWorkingDirectory),
-        //   plus the npm global cache directory for package installs.
-        //   SECURITY: do NOT add absolute paths containing secrets,
-        //   credentials, or keys (e.g. ~/.ssh, ~/.config/gh).
-        "readwritePaths": [
-          // npm global cache — needed for agents that install packages.
-          // This is the standard npm cache location. Relative paths
-          // are not sufficient here; npm resolves absolute cache paths.
-          "~/.npm"
-        ],
+        //   Managed grants require exact absolute strings on every OS.
+        //   Baseline: empty for portability; current-repository access is
+        //   assembled separately by addCurrentWorkingDirectory.
+        "readwritePaths": [],
 
         // readonlyPaths
         //   Paths the agent MAY read but NOT write.
-        //   Baseline: include the system CA bundle so TLS connections
-        //   from MCP/LSP servers validate certificates correctly.
-        "readonlyPaths": [
-          // System CA certificates — required for TLS verification.
-          "/etc/ssl/certs",
-          // macOS system certificate store.
-          "/System/Library/Keychains/SystemRootCertificates.keychain"
-        ],
+        //   Baseline: empty because a portable governance repo cannot invent
+        //   one absolute path valid on Linux, macOS, and Windows.
+        "readonlyPaths": [],
 
         // deniedPaths
         //   Paths the agent is EXPLICITLY DENIED access to, even if they
         //   would otherwise be readable.
-        //   Baseline: block SSH keys and Git credentials to prevent
-        //   agents from exfiltrating authentication material.
-        //   SECURITY: team mappings MUST NOT remove entries from this list.
-        "deniedPaths": [
-          // SSH private keys.
-          "~/.ssh",
-          // Git credential store.
-          "~/.git-credentials",
-          // Generic credential/secret stores.
-          "~/.gnupg"
-        ]
+        //   Baseline: empty for portability. Device MDM/file policy should add
+        //   absolute credential paths; keychain access is denied below.
+        "deniedPaths": []
       },
 
       // network
       //   Network access control for the sandbox.
       "network": {
         // allowOutbound
-        //   true: the agent MAY make outbound network connections to
-        //   destinations listed in allowedMcpServers (plus explicit allows).
-        //   Baseline: true — required for agents to call MCP servers,
-        //   GitHub APIs, and package registries during SDLC tasks.
+        //   Capability-direction semantics: true leaves outbound access under
+        //   user/network policy; false would block it. Baseline true preserves
+        //   GitHub, reviewed MCP, and package-registry workflows.
         "allowOutbound": true,
 
         // allowLocalNetwork

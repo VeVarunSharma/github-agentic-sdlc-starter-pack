@@ -1,8 +1,8 @@
 {
-  "copilot/teams/ai-platform-pioneers.json": [
+  "ai-platform-pioneers.json": [
     "ai-platform-pioneers"
   ],
-  "copilot/teams/developers.json": [
+  "developers.json": [
     "developers"
   ]
 }

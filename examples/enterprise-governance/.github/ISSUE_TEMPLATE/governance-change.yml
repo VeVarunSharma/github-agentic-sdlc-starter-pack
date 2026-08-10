@@ -31,7 +31,7 @@ body:
     id: floor-key-impact
     attributes:
       label: Does this change affect a floor key?
-      description: Floor keys (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, strictKnownMarketplaces) cannot be weakened.
+      description: Floor keys (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, and the exact strict marketplace sources) cannot be weakened.
       options:
         - "No — does not touch floor keys"
         - "Yes — but strengthens a floor key (allowed)"

@@ -32,7 +32,7 @@ document rollout dates and are labeled separately.
 |---|---|---|---|---|
 | Managed settings applied | ✓ | ✓ | ✓ | ✓ (subset — per-key table below) |
 | MDM override | ✓ | ✓ | ✗ | ✗ |
-| File fallback (`~/.config/github-copilot/`) | ✓ | ✓ | ✗ | ✗ |
+| Platform managed-settings file | ✓ | ✓ | ✗ | ✗ |
 
 ---
 
@@ -68,7 +68,6 @@ on those clients.
 |---|---|---|---|---|---|
 | `telemetry.enabled` | ✓ | ✓ | ✗ | ✗ | **No** |
 | `telemetry.endpoint` | ✓ | ✓ | ✗ | ✗ | **No** |
-| `telemetry.endpointToken` | ✓ | ✓ | ✗ | ✗ | **No** |
 | `telemetry.protocol` | ✓ | ✓ | ✗ | ✗ | **No** |
 | `telemetry.captureContent` | ✓ | ✓ | ✗ | ✗ | **No** — security floor |
 | `telemetry.lockCaptureContent` | ✓ | ✓ | ✗ | ✗ | **No** — security floor |
@@ -84,7 +83,8 @@ Applies to **CLI, VS Code, and Copilot app**. Not applicable to cloud agent.
 
 | Key | CLI | VS Code | App | Cloud agent | Team overridable |
 |---|---|---|---|---|---|
-| `remoteControl.requireSSO` | ✓ | ✓ | ✓ | ✗ | **No** |
+| `remoteControl.mode` | ✓ | ✓ | ✓ | ✗ | **No** |
+| `remoteControl.githubDotComOrganizations` | ✓ | ✓ | ✓ | ✗ | **No** |
 
 ---
 
@@ -94,8 +94,8 @@ Applies to **CLI, VS Code, and Copilot app**. Does **not** apply to cloud agent.
 
 | Key | CLI | VS Code | App | Cloud agent | Team overridable |
 |---|---|---|---|---|---|
-| `allowedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** — additive (teams add; least-restrictive) |
-| `deniedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** — additive (more deny = more restrictive) |
+| `allowedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** when wrapped; team value replaces the default and multi-team values combine least-restrictively |
+| `deniedMcpServers` | ✓ | ✓ | ✓ | ✗ | **Yes** only when wrapped; this baseline keeps it non-overridable |
 
 **Note:** Bypass prompts (interactive bypass requests) surface **only** in the Copilot app,
 CLI, and VS Code — clients where the user is present. The cloud agent does not
@@ -144,18 +144,15 @@ bypass controls do not apply; it runs under GitHub's infrastructure controls.
 
 ## Copilot Business vs Enterprise caveat
 
-`sandbox.*` and `telemetry.*` require **Copilot Enterprise**. On Copilot Business
-these keys may be ignored. Verify feature availability with your GitHub account
-team before relying on these controls for compliance purposes.
+See the dedicated [`copilot-business.md`](copilot-business.md) caveat. The key
+issue is the Enterprise license needed to create/select an organization
+`.github-private` source in a dedicated Business enterprise, not a blanket claim
+that sandbox or telemetry keys are unsupported.
 
 ## Centralized controls not in managed-settings
 
-The following are **not** controlled by `copilot/managed-settings.json`:
-- Cloud agent third-party MCP → Enterprise AI Controls (UI, REST, preview API)
-- Cloud agent custom MCP → repository Copilot settings
-- Copilot seat assignment → Organization settings → Copilot
-- Policy for public code suggestions → Organization settings → Copilot
-- Cloud agent repository access → Organization settings → Copilot
+See [`centralized-controls.md`](centralized-controls.md) for the maintained
+UI/REST/GA/preview inventory.
 
 ---
 
@@ -167,7 +164,7 @@ matcher field:
 | Field | Scope | Security recommendation |
 |---|---|---|
 | `serverUrl` | Matches remote HTTP/SSE servers by URL prefix | **Preferred for remote servers** — use exact HTTPS URL |
-| `serverCommand` | Matches local stdio servers by executable path | **Preferred for local servers** — include `args` to pin exact package+version |
+| `serverCommand` | Matches the exact local stdio executable and argument array | **Preferred for local servers** — pin every package/version in the array |
 | `serverName` | Name-only match for well-known servers | Convenience, **not a security boundary** — avoid in security baselines (Aug 6 changelog) |
 
 **Cloud agent MCP (separate):**

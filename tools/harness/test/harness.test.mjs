@@ -10,6 +10,7 @@ import {
   validationResult,
 } from '../src/hook.mjs';
 import {
+  checkEnterpriseGovernance,
   checkMcp,
   checkRequiredCheckContracts,
   parseFrontmatter,
@@ -144,6 +145,16 @@ test('required check contract derives every current workflow context', () => {
     'Analyze (javascript-typescript)',
     'apm install + audit',
     'Review dependency changes',
+  ]);
+});
+
+test('enterprise governance validation reports a missing overlay validator', async (t) => {
+  const root = await mkdtemp(resolve(tmpdir(), 'harness-governance-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const errors = [];
+  checkEnterpriseGovernance(root, errors);
+  assert.deepEqual(errors, [
+    'examples/enterprise-governance/scripts/validate-governance.mjs: required validator is missing',
   ]);
 });
 

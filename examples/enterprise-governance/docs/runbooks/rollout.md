@@ -18,7 +18,9 @@ or `copilot/team-mappings.source.jsonc`.
 
 Before merging any managed-settings change:
 
-- [ ] Open an issue using the [governance-change template](../.github/ISSUE_TEMPLATE/governance-change.yml)
+- [ ] Replace `{{ENTERPRISE_GOVERNANCE_TEAM}}` in `CODEOWNERS` with the real
+      `@organization/team-slug` in the copied governance repository
+- [ ] Open an issue using the [governance-change template](../../.github/ISSUE_TEMPLATE/governance-change.yml)
 - [ ] Run `node scripts/validate-governance.mjs` locally — zero errors
 - [ ] Run `node scripts/render-managed-settings.mjs --check` — passes
 - [ ] PR has CODEOWNER approval from `@{{ENTERPRISE_GOVERNANCE_TEAM}}`

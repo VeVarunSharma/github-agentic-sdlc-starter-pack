@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         **Policy exceptions are rare and require governance team approval.**
-        Floor keys (sandbox.enabled, allowBypass, captureContent, strictKnownMarketplaces)
+        Floor keys (sandbox.enabled, allowBypass, captureContent, and strict marketplace sources)
         cannot be granted exceptions under any circumstances. If your request touches
         a floor key, it will be automatically rejected.
 
@@ -57,7 +57,7 @@ body:
     attributes:
       label: Pre-submission checklist
       options:
-        - label: I confirm this does NOT touch a floor key (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, strictKnownMarketplaces)
+        - label: I confirm this does NOT touch a floor key (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, or strict marketplace sources)
           required: true
         - label: I have read docs/reference/team-override-model.md
           required: true

@@ -6,6 +6,9 @@ doc describes the additional controls you should layer on for
 
 For a ready-to-apply OSS overlay see
 [`examples/public-oss-hardening/`](../examples/public-oss-hardening/).
+For centralized GitHub Copilot settings, enterprise plugins/agents, team
+specialization, and AI-control rollout, see the copy-ready
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) source.
 
 ## Posture comparison
 

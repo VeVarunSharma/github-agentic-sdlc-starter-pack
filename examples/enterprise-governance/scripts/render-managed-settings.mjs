@@ -10,29 +10,64 @@
 //     --enterprise ENTERPRISE_SLUG \
 //     --organization ORG_SLUG \
 //     --governance-repo REPO_NAME \
+//     --governance-ref COMMIT_SHA \
 //     --otlp-endpoint https://otel.example.internal \
+//     --internal-mcp-url https://mcp.example.internal/standards \
+//     --pioneer-mcp-url https://mcp.example.internal/pioneers \
+//     --standard-team developers \
+//     --pioneer-team ai-platform-pioneers \
 //     [--check]            # verify generated files match without writing
 //     [--deploy-env ENV]   # environment label (default: production)
 //     [--internal-mcp-url URL]  # internal MCP server URL
 //
 // SECURITY
-//   • Never pass secrets (tokens, passwords) as command-line arguments.
-//     Use environment variables OTLP_ENDPOINT_TOKEN for bearer tokens.
-//   • The renderer validates that no {{PLACEHOLDER}} tokens remain in
+//   • Never pass secrets, tokens, passwords, or telemetry headers.
+//     The committed policy keeps telemetry headers empty.
+//   • The renderer validates that no declared render tokens remain in
 //     generated output (--check mode or deploy mode both enforce this).
 //   • Secrets must NOT appear in source files — only in environment vars.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const CONFIG_PATH = path.join(ROOT, 'config', 'render-inputs.json');
+const savedConfig = existsSync(CONFIG_PATH)
+  ? JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))
+  : {};
 
 // ─── Argument parsing ────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
+const VALUE_OPTIONS = new Set([
+  '--enterprise',
+  '--organization',
+  '--governance-repo',
+  '--governance-ref',
+  '--otlp-endpoint',
+  '--deploy-env',
+  '--internal-mcp-url',
+  '--pioneer-mcp-url',
+  '--standard-team',
+  '--pioneer-team',
+]);
+const FLAG_OPTIONS = new Set(['--check', '--validate-only', '--help']);
+
+for (let index = 0; index < args.length; index++) {
+  const arg = args[index];
+  if (FLAG_OPTIONS.has(arg)) continue;
+  if (!VALUE_OPTIONS.has(arg)) {
+    console.error(`ERROR: Unknown argument: ${arg}`);
+    process.exit(1);
+  }
+  if (index + 1 >= args.length || args[index + 1].startsWith('--')) {
+    console.error(`ERROR: ${arg} requires a value`);
+    process.exit(1);
+  }
+  index++;
+}
 
 function flag(name) {
   return args.includes(`--${name}`);
@@ -59,16 +94,16 @@ USAGE
     --enterprise SLUG        GitHub Enterprise slug (required)
     --organization SLUG      GitHub organization slug (required)
     --governance-repo NAME   .github-private repository name (required)
+    --governance-ref SHA     Reviewed 40-character governance commit (required)
     --otlp-endpoint URL      OTLP receiver base URL (required)
     [--deploy-env ENV]       Deployment environment label (default: production)
-    [--internal-mcp-url URL] Internal MCP server URL (default: placeholder)
+    --internal-mcp-url URL   Reviewed enterprise MCP endpoint (required)
+    --pioneer-mcp-url URL    Reviewed pioneer-team MCP endpoint (required)
+    --standard-team SLUG     Standard developer enterprise team (required)
+    --pioneer-team SLUG      AI/platform pioneer enterprise team (required)
     [--check]                Verify generated files match without writing
+    [--validate-only]        Validate explicit inputs without writing/comparing
     [--help]                 Show this help
-
-ENVIRONMENT VARIABLES
-  OTLP_ENDPOINT_TOKEN       Bearer token for the OTLP endpoint
-                            (required when rendering for deployment;
-                             may be a safe demo value in check mode)
 
 EXAMPLES
   # Render with your values:
@@ -76,15 +111,15 @@ EXAMPLES
     --enterprise acme-corp \\
     --organization acme-engineering \\
     --governance-repo .github-private \\
-    --otlp-endpoint https://otel.acme.internal
+    --governance-ref 0123456789abcdef0123456789abcdef01234567 \\
+    --otlp-endpoint https://otel.acme.internal \\
+    --internal-mcp-url https://mcp.acme.example/standards \\
+    --pioneer-mcp-url https://mcp.acme.example/pioneers \\
+    --standard-team developers \\
+    --pioneer-team ai-platform-pioneers
 
   # Check that committed generated files are up to date (CI):
-  node scripts/render-managed-settings.mjs \\
-    --enterprise example-org \\
-    --organization example-org \\
-    --governance-repo .github-private \\
-    --otlp-endpoint https://otel.example.internal \\
-    --check
+  node scripts/render-managed-settings.mjs --check
 `);
 }
 
@@ -94,18 +129,32 @@ if (flag('help')) {
 }
 
 const CHECK_MODE = flag('check');
-const ENTERPRISE  = opt('enterprise',       !CHECK_MODE);
-const ORG         = opt('organization',     !CHECK_MODE);
-const GOV_REPO    = opt('governance-repo',  !CHECK_MODE);
-const OTLP_EP     = opt('otlp-endpoint',   !CHECK_MODE);
-const DEPLOY_ENV  = opt('deploy-env') ?? 'production';
-const INT_MCP_URL = opt('internal-mcp-url') ?? 'https://mcp.example.internal/standards';
+const VALIDATE_ONLY = flag('validate-only');
+if (CHECK_MODE && VALIDATE_ONLY) {
+  console.error('ERROR: --check and --validate-only are mutually exclusive');
+  process.exit(1);
+}
+const ENTERPRISE  = opt('enterprise');
+const ORG         = opt('organization');
+const GOV_REPO    = opt('governance-repo');
+const GOV_REF     = opt('governance-ref');
+const OTLP_EP     = opt('otlp-endpoint');
+const DEPLOY_ENV  = opt('deploy-env') ?? savedConfig.deployEnvironment ?? 'production';
+const INT_MCP_URL = opt('internal-mcp-url');
+const PIONEER_MCP_URL = opt('pioneer-mcp-url');
+const STANDARD_TEAM = opt('standard-team');
+const PIONEER_TEAM = opt('pioneer-team');
 
 // In check mode without explicit args, use safe demo values for comparison
-const enterprise  = ENTERPRISE  ?? 'example-org';
-const org         = ORG         ?? 'example-org';
-const govRepo     = GOV_REPO    ?? '.github-private';
-const otlpEp      = OTLP_EP     ?? 'https://otel.example.internal/v1/traces';
+const enterprise  = ENTERPRISE  ?? savedConfig.enterprise ?? 'example-enterprise';
+const org         = ORG         ?? savedConfig.organization ?? 'example-org';
+const govRepo     = GOV_REPO    ?? savedConfig.governanceRepository ?? '.github-private';
+const govRef      = GOV_REF     ?? savedConfig.governanceRef ?? '1111111111111111111111111111111111111111';
+const otlpEp      = OTLP_EP     ?? savedConfig.otlpEndpoint ?? 'https://otel.example.internal/v1/traces';
+const internalMcpUrl = INT_MCP_URL ?? savedConfig.internalMcpUrl ?? 'https://mcp.example.internal/standards';
+const pioneerMcpUrl = PIONEER_MCP_URL ?? savedConfig.pioneerMcpUrl ?? 'https://mcp.example.internal/pioneers';
+const standardTeam = STANDARD_TEAM ?? savedConfig.standardTeam ?? 'developers';
+const pioneerTeam = PIONEER_TEAM ?? savedConfig.pioneerTeam ?? 'ai-platform-pioneers';
 
 // ─── JSONC parser (comments + trailing commas) ───────────────────────────────
 
@@ -153,22 +202,19 @@ function parseJsonc(src) {
 
 // ─── Token substitution ──────────────────────────────────────────────────────
 
-const OTLP_TOKEN = process.env.OTLP_ENDPOINT_TOKEN ?? 'DEMO_TOKEN_NOT_FOR_PRODUCTION';
-
-// Token map — all {{PLACEHOLDER}} tokens that appear in source files.
+// Token map — all declared render tokens that appear in source files.
 // To add a new token, add it here and document it in managed-settings.source.jsonc.
 const TOKEN_MAP = {
   '{{ENTERPRISE_SLUG}}':         enterprise,
   '{{ORG_SLUG}}':                org,
   '{{GOVERNANCE_REPO}}':         govRepo,
+  '{{GOVERNANCE_REF}}':          govRef,
   '{{OTLP_ENDPOINT}}':           otlpEp.endsWith('/v1/traces') ? otlpEp : `${otlpEp}/v1/traces`,
-  '{{OTLP_ENDPOINT_TOKEN}}':     OTLP_TOKEN,
   '{{DEPLOY_ENV}}':              DEPLOY_ENV,
-  '{{INTERNAL_MCP_URL}}':        INT_MCP_URL,
-  '{{GOVERNANCE_MARKETPLACE_URL}}': `https://raw.githubusercontent.com/${org}/${govRepo}/main/.github/plugin/marketplace.json`,
-  // Team tokens — demo values; replace in bootstrap setup
-  '{{STANDARD_DEVELOPERS_TEAM}}': 'developers',
-  '{{AI_PIONEERS_TEAM}}':         'ai-platform-pioneers',
+  '{{INTERNAL_MCP_URL}}':        internalMcpUrl,
+  '{{PIONEER_MCP_URL}}':         pioneerMcpUrl,
+  '{{STANDARD_DEVELOPERS_TEAM}}': standardTeam,
+  '{{AI_PIONEERS_TEAM}}':         pioneerTeam,
 };
 
 /**
@@ -181,7 +227,7 @@ function validateTokens(tokenMap) {
       throw new Error(`Token ${token} resolved to empty string`);
     }
     // Reject obvious secret patterns in rendered values
-    if (token !== '{{OTLP_ENDPOINT_TOKEN}}') {
+    if (token !== 'OTLP_ENDPOINT_TOKEN') {
       if (/^(sk-|ghp_|github_pat_|Bearer |Token )/i.test(value)) {
         throw new Error(`Token ${token} value looks like a secret — use environment variables`);
       }
@@ -190,7 +236,7 @@ function validateTokens(tokenMap) {
 }
 
 /**
- * Substitute all {{PLACEHOLDER}} tokens in a string.
+ * Substitute all declared render tokens in a string.
  */
 function substitute(text, tokenMap) {
   let result = text;
@@ -226,6 +272,9 @@ function renderSource(sourcePath, tokenMap) {
     throw new Error(`Source file not found: ${sourcePath}`);
   }
   const raw = readFileSync(sourcePath, 'utf8');
+  if (/(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._-]{20,})/i.test(raw)) {
+    throw new Error(`Source file contains a secret-like value: ${sourcePath}`);
+  }
   const substituted = substitute(raw, tokenMap);
   const parsed = parseJsonc(substituted);
 
@@ -294,13 +343,16 @@ function validateHttpsUrl(value, label) {
 try {
   validateTokens(TOKEN_MAP);
 
-  if (!CHECK_MODE) {
-    // Validate slug formats for deploy values
-    validateSlug(enterprise, 'enterprise');
-    validateSlug(org, 'organization');
-    validateSlug(govRepo.replace(/^\./, ''), 'governance-repo');
-    validateHttpsUrl(otlpEp, 'otlp-endpoint');
-    validateHttpsUrl(INT_MCP_URL, 'internal-mcp-url');
+  validateSlug(enterprise, 'enterprise');
+  validateSlug(org, 'organization');
+  validateSlug(govRepo.replace(/^\./, ''), 'governance-repo');
+  validateHttpsUrl(otlpEp, 'otlp-endpoint');
+  validateHttpsUrl(internalMcpUrl, 'internal-mcp-url');
+  validateHttpsUrl(pioneerMcpUrl, 'pioneer-mcp-url');
+  validateSlug(standardTeam, 'standard-team');
+  validateSlug(pioneerTeam, 'pioneer-team');
+  if (!/^[0-9a-f]{40}$/i.test(govRef)) {
+    throw new Error('governance-ref must be a full 40-character commit SHA');
   }
 
   // Render managed settings
@@ -330,7 +382,9 @@ try {
     return [target, rendered, label];
   });
 
-  if (CHECK_MODE) {
+  if (VALIDATE_ONLY) {
+    console.log('Render inputs and JSONC sources are valid; no files were written.');
+  } else if (CHECK_MODE) {
     // Verify byte-exact match with committed generated files
     let failures = 0;
     for (const [target, rendered, label] of [
@@ -354,6 +408,20 @@ try {
     }
     if (failures > 0) process.exit(1);
   } else {
+    const config = {
+      enterprise,
+      organization: org,
+      governanceRepository: govRepo,
+      governanceRef: govRef,
+      otlpEndpoint: otlpEp,
+      deployEnvironment: DEPLOY_ENV,
+      internalMcpUrl,
+      pioneerMcpUrl,
+      standardTeam,
+      pioneerTeam,
+    };
+    writeFileSync(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    console.log('Wrote: config/render-inputs.json');
     // Write generated files
     writeFileSync(msTarget, msRendered, 'utf8');
     console.log(`Wrote: copilot/managed-settings.json`);

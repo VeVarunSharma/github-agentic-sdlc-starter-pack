@@ -1,7 +1,27 @@
 # Governance
 
-How `apm-policy.yml` is enforced, what the audit gate checks, and what
-"break-glass" looks like.
+How repository package policy and the centralized enterprise Copilot tier are
+governed, enforced, and recovered.
+
+## Enterprise Copilot governance
+
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) is the
+copy-ready source for a selected organization `.github-private` repository. It
+contains annotated managed settings, generated strict JSON, team
+specializations, an enterprise plugin marketplace, enterprise agents,
+protection examples, rollout guidance, and deterministic validation.
+
+The overlay is source material, not active policy. GitHub enforces
+server-managed settings only after an enterprise administrator copies it to the
+governance repository, renders organization-specific values, protects the
+paths, and selects that source. MDM policy outranks server-managed policy,
+which outranks file-based and user settings; sandbox restrictions combine
+most-restrictively. Enterprise AI Controls outside `managed-settings.json`
+remain separate administrative surfaces.
+
+The overlay's bootstrap is dry-run by default. Cloud or enterprise mutation
+requires explicit identifiers, `--apply`, confirmation, suitable admin
+authentication, and review of the printed operations.
 
 ## Policy file
 

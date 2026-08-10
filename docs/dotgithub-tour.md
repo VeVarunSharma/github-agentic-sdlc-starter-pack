@@ -6,6 +6,9 @@
 
 Root [`AGENTS.md`](../AGENTS.md) is the canonical map. `.github/` contains
 adapters and task-specific primitives; it is not a duplicate project manual.
+Centralized enterprise policy is a separate repository tier represented by the
+copy-ready [`examples/enterprise-governance/`](../examples/enterprise-governance/)
+overlay.
 
 ## Map
 
@@ -75,3 +78,14 @@ See [`agent-support-matrix.md`](agent-support-matrix.md). In particular:
 4. Run `npm --prefix ../tools/harness run validate`.
 5. If APM owns the file, change [`../apm.yml`](../apm.yml) and regenerate it;
    never hand-edit the deployed copy.
+
+## Centralized enterprise tier
+
+Repository-local primitives remain reviewable examples and per-repository
+context. Enterprise administrators can copy
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) to a
+selected organization `.github-private` repository for server-managed settings,
+team mappings, enterprise plugins, and enterprise agents. The overlay keeps
+annotated JSONC canonical and commits generated strict JSON because GitHub does
+not consume comments. Selection and AI Controls remain administrator actions;
+files in this starter do not enforce enterprise policy by themselves.

@@ -33,6 +33,7 @@ repository manual into every prompt.
 | Security review | [`docs/standards/security.md`](docs/standards/security.md) | [Security instructions](.github/instructions/security.instructions.md) |
 | Code/PR review | [`docs/standards/review.md`](docs/standards/review.md) | [Review instructions](.github/instructions/review.instructions.md) |
 | Agent harness | [`docs/dotgithub-tour.md`](docs/dotgithub-tour.md) | [`docs/agent-support-matrix.md`](docs/agent-support-matrix.md) |
+| Enterprise Copilot governance | [`examples/enterprise-governance/README.md`](examples/enterprise-governance/README.md) | [`examples/enterprise-governance/docs/reference/client-support-matrix.md`](examples/enterprise-governance/docs/reference/client-support-matrix.md) |
 | Documentation | [`docs/README.md`](docs/README.md) | [`docs/plans/README.md`](docs/plans/README.md) |
 | APM update | [`docs/apm-ownership-model.md`](docs/apm-ownership-model.md) | [`docs/upstream-sources.md`](docs/upstream-sources.md) |
 
@@ -51,6 +52,7 @@ repository manual into every prompt.
 | `.github/mcp/mcp.json` | Reviewed cloud MCP settings reference; not auto-loaded |
 | `.vscode/mcp.json` | Editor-local MCP configuration |
 | `tools/harness/` | Deterministic repository contract checks |
+| `examples/enterprise-governance/` | Copy-ready `.github-private` centralized Copilot governance source |
 | `docs/` | Versioned system of record, plans, standards, and decisions |
 
 ## Validation command routing

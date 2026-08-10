@@ -1,0 +1,53 @@
+// copilot/team-mappings.source.jsonc
+//
+// TEAM SETTINGS MAPPING — annotated source.
+//
+// PURPOSE
+//   Maps each team's settings file to the GitHub team slugs that receive it.
+//   Reference: https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/manage-agents/configure-enterprise-managed-settings
+//
+// SHAPE (generated JSON)
+//   { "<team-settings.json>": ["<team-slug>", ...], ... }
+//   Each key is a filename resolved beneath `copilot/teams/`.
+//   Each value is an array of GitHub team slugs within the organization.
+//   Multiple teams can share one settings file; one team cannot have multiple.
+//
+// OVERRIDABLE KEYS (per official docs)
+//   Team settings files may only contain:
+//     • permissions.model          — change model (e.g. "unmanaged")
+//     • allowedMcpServers          — replace the overridable default with a reviewed list
+//     • deniedMcpServers           — ADD denied servers
+//     • enabledPlugins             — ADDITIVE ONLY (cannot remove enterprise plugins)
+//     • extraKnownMarketplaces     — ADDITIVE ONLY
+//   Non-overridable (team settings MUST NOT include these keys):
+//     • permissions.disableBypassPermissionsMode — floor kept by this baseline
+//     • telemetry.*                — non-overridable; enterprise controls only
+//     • remoteControl.*            — non-overridable
+//     • sandbox.*                  — non-overridable; most-restrictive wins
+//     • strictKnownMarketplaces    — non-overridable
+//
+// MERGE SEMANTICS
+//   Enterprise settings are the ceiling for security controls; team settings
+//   add capabilities within those bounds. Least-restrictive merge for allow
+//   lists; most-restrictive for sandbox. The renderer and validator enforce
+//   that no team file contains a non-overridable key.
+//
+// VALIDATED BY
+//   `node scripts/validate-governance.mjs` checks file existence, schema,
+//   allowed-key scope, and that team slugs are non-empty strings.
+//
+{
+  // Standard Developers team — receives enterprise baseline with no deviations.
+  // Documented here to produce an auditable, explicit policy for the team.
+  // File: copilot/teams/developers.json
+  // Teams: {{STANDARD_DEVELOPERS_TEAM}} — substituted at render time.
+  "developers.json": ["{{STANDARD_DEVELOPERS_TEAM}}"],
+
+  // AI / Platform Pioneers team — receives enterprise baseline plus:
+  //   • permissions.model = "unmanaged": users choose model freely for research
+  //   • allowedMcpServers: adds an AI-pilots-specific internal endpoint
+  //   • enabledPlugins: adds the pilot tools plugin (additive)
+  // File: copilot/teams/ai-platform-pioneers.json
+  // Teams: {{AI_PIONEERS_TEAM}} — substituted at render time.
+  "ai-platform-pioneers.json": ["{{AI_PIONEERS_TEAM}}"]
+}

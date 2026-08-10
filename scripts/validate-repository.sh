@@ -32,6 +32,7 @@ fi
 
 find scripts -type f -name '*.sh' -print > "${shell_list}"
 find .github/hooks/scripts -type f -name '*.sh' -print >> "${shell_list}"
+find examples -type f -name '*.sh' -print >> "${shell_list}"
 if ! xargs shellcheck < "${shell_list}"; then
   fail "ShellCheck reported shell script issues"
 fi
@@ -54,6 +55,11 @@ fi
 
 if ! npm --prefix tools/harness run validate; then
   fail "Agent harness repository validation failed"
+fi
+
+if [[ -f examples/enterprise-governance/package.json ]] &&
+   ! npm --prefix examples/enterprise-governance test; then
+  fail "Enterprise governance overlay tests failed"
 fi
 
 find . \

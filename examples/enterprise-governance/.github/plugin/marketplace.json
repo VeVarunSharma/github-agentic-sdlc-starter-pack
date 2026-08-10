@@ -1,0 +1,24 @@
+{
+  "name": "enterprise-standards",
+  "owner": {
+    "name": "Enterprise AI Governance"
+  },
+  "metadata": {
+    "description": "Reviewed Copilot plugins distributed by the enterprise governance repository",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "agentic-sdlc-standards",
+      "description": "Portable SDLC planning, review, and governance validation standards",
+      "version": "1.0.0",
+      "source": "./plugins/agentic-sdlc-standards"
+    },
+    {
+      "name": "sdlc-pilot-tools",
+      "description": "Restricted readiness guidance for approved AI and platform pioneers",
+      "version": "0.1.0",
+      "source": "./plugins/sdlc-pilot-tools"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "sdlc-pilot-tools",
+  "description": "Restricted AI and platform pioneer readiness guidance",
+  "version": "0.1.0",
+  "author": {
+    "name": "Enterprise AI Governance"
+  },
+  "license": "MIT",
+  "skills": "skills/"
+}

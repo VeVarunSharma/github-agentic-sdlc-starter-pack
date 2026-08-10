@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 
 const AGENT_TOOL_ALIASES = new Set([
@@ -514,6 +515,38 @@ function checkStructures(root, errors) {
   }
 }
 
+export function checkEnterpriseGovernance(root, errors) {
+  const overlay = join(root, 'examples/enterprise-governance');
+  const validator = join(overlay, 'scripts/validate-governance.mjs');
+  if (!existsSync(validator)) {
+    errors.push(
+      'examples/enterprise-governance/scripts/validate-governance.mjs: required validator is missing',
+    );
+    return;
+  }
+
+  const result = spawnSync(process.execPath, [validator, '--check'], {
+    cwd: overlay,
+    encoding: 'utf8',
+    env: { ...process.env, NO_COLOR: '1' },
+  });
+  if (result.error) {
+    errors.push(`examples/enterprise-governance: validator failed to start (${result.error.message})`);
+    return;
+  }
+  if (result.status !== 0) {
+    const detail = `${result.stderr ?? ''}\n${result.stdout ?? ''}`
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .slice(0, 20)
+      .join(' | ');
+    errors.push(
+      `examples/enterprise-governance: validation failed${detail ? ` (${detail})` : ''}`,
+    );
+  }
+}
+
 export function validateRepository(root) {
   const errors = [];
   checkAgentMap(root, errors);
@@ -528,5 +561,6 @@ export function validateRepository(root) {
   checkRequiredCheckContracts(root, errors);
   checkApm(root, errors);
   checkStructures(root, errors);
+  checkEnterpriseGovernance(root, errors);
   return errors;
 }

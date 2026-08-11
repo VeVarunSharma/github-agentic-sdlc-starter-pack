@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A working reference for governed agentic software delivery on GitHub and Azure."
+    />
+    <title>Agentic SDLC Control Plane</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/" aria-label="Agentic SDLC home">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span>
+            <strong>Agentic SDLC</strong>
+            <small>Control plane</small>
+          </span>
+        </a>
+        <nav aria-label="Primary navigation">
+          <a href="#loop">Delivery loop</a>
+          <a href="#gates">Gates</a>
+          <a href="#trust">Trust</a>
+          <a href="#adopt">Adopt</a>
+        </nav>
+        <div
+          class="status-pill"
+          id="header-status"
+          data-state="pending"
+          aria-live="polite"
+        >
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>Checking runtime</span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Governed agentic delivery</p>
+            <h1 id="hero-title">From intent to production, with proof at every gate.</h1>
+            <p class="hero-lead">
+              A runnable reference that connects GitHub issues, Copilot agents,
+              protected pull requests, secretless Azure trust, and immutable
+              container deployment.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#loop">Explore the loop</a>
+              <a
+                class="button button-secondary"
+                href="https://github.com/VeVarunSharma/github-agentic-sdlc-starter-pack"
+              >
+                View repository
+              </a>
+            </div>
+            <ul class="signal-list" aria-label="Core guarantees">
+              <li><span aria-hidden="true">01</span> Human review stays required</li>
+              <li><span aria-hidden="true">02</span> Azure access uses short-lived OIDC</li>
+              <li><span aria-hidden="true">03</span> Deployments and rollback use digests</li>
+            </ul>
+          </div>
+
+          <aside class="runtime-panel" aria-labelledby="runtime-title">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Live deployment</p>
+                <h2 id="runtime-title">Runtime evidence</h2>
+              </div>
+              <button class="icon-button" id="refresh-status" type="button">
+                Refresh
+              </button>
+            </div>
+            <div class="runtime-grid" aria-live="polite" aria-busy="true">
+              <article class="metric-card" id="health-card" data-state="pending">
+                <span class="metric-label">Health</span>
+                <strong id="health-value">Checking</strong>
+                <span id="health-detail">Waiting for /health</span>
+              </article>
+              <article class="metric-card" id="version-card" data-state="pending">
+                <span class="metric-label">Release</span>
+                <strong id="version-value">Loading</strong>
+                <span id="version-detail">Waiting for /api/info</span>
+              </article>
+              <article class="metric-card metric-card-wide" id="runtime-card" data-state="pending">
+                <span class="metric-label">Runtime</span>
+                <strong id="runtime-value">Node.js</strong>
+                <span id="runtime-detail">Build metadata is loading</span>
+              </article>
+            </div>
+            <p class="panel-note" id="runtime-message">
+              Live state is fetched from this running container. Unknown state
+              remains visible until the APIs respond.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="loop" aria-labelledby="loop-title">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Closed-loop delivery</p>
+              <h2 id="loop-title">One traceable path from intent to telemetry.</h2>
+            </div>
+            <p>
+              Each transition has an owner, an artifact, and a machine-checkable
+              control. Agents accelerate the work; they do not erase review.
+            </p>
+          </div>
+
+          <ol class="pipeline" aria-label="Agentic software delivery lifecycle">
+            <li>
+              <span class="pipeline-index">01</span>
+              <div>
+                <h3>Issue</h3>
+                <p>Intent, acceptance criteria, non-goals, and linked context.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pipeline-index">02</span>
+              <div>
+                <h3>Agent</h3>
+                <p>Repository instructions and scoped skills guide implementation.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pipeline-index">03</span>
+              <div>
+                <h3>PR + gates</h3>
+                <p>Tests, CodeQL, dependency review, policy, and infra validation.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pipeline-index">04</span>
+              <div>
+                <h3>Review</h3>
+                <p>A human resolves risk, ownership, and rollout decisions.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pipeline-index">05</span>
+              <div>
+                <h3>Merge</h3>
+                <p>A protected squash merge preserves a linear, attributable history.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pipeline-index">06</span>
+              <div>
+                <h3>Deploy</h3>
+                <p>OIDC, OCI digests, health probes, rollback, and telemetry close the loop.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section section-tinted" id="gates" aria-labelledby="gates-title">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Merge contract</p>
+              <h2 id="gates-title">Controls that fail closed.</h2>
+            </div>
+            <p>
+              These cards describe configured repository contracts, not live
+              claims about a specific pull request.
+            </p>
+          </div>
+
+          <div class="card-grid">
+            <article class="gate-card">
+              <span class="card-kicker">Application</span>
+              <h3>Lint, tests, audit</h3>
+              <p>Node 22 ESM, semantic HTML, API behavior, and production dependencies.</p>
+              <span class="contract-state">Required check</span>
+            </article>
+            <article class="gate-card">
+              <span class="card-kicker">Supply chain</span>
+              <h3>Container policy</h3>
+              <p>Hadolint, Trivy HIGH/CRITICAL policy, immutable base, SBOM, provenance.</p>
+              <span class="contract-state">Required check</span>
+            </article>
+            <article class="gate-card">
+              <span class="card-kicker">Infrastructure</span>
+              <h3>Terraform validation</h3>
+              <p>Formatted modules, locked providers, typed inputs, and scoped identities.</p>
+              <span class="contract-state">Required check</span>
+            </article>
+            <article class="gate-card">
+              <span class="card-kicker">Security</span>
+              <h3>GHAS baseline</h3>
+              <p>CodeQL, dependency review, secret scanning, and push protection.</p>
+              <span class="contract-state">Required check</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="trust" aria-labelledby="trust-title">
+        <div class="container trust-grid">
+          <div>
+            <p class="eyebrow">Enterprise governance</p>
+            <h2 id="trust-title">Managed settings meet least-privilege cloud trust.</h2>
+            <p class="section-copy">
+              Repository rulesets and environments define who can advance work.
+              Separate Azure identities define what each workflow can change.
+            </p>
+            <dl class="governance-list">
+              <div>
+                <dt>Plan identity</dt>
+                <dd>Read-only discovery plus exact state-container access.</dd>
+              </div>
+              <div>
+                <dt>Apply identity</dt>
+                <dd>Approval-gated infrastructure changes and constrained RBAC delegation.</dd>
+              </div>
+              <div>
+                <dt>Deploy identity</dt>
+                <dd>Push to one registry and update one parent Web App.</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="trust-diagram" aria-label="OIDC trust path">
+            <div class="trust-node">
+              <span>GitHub environment</span>
+              <strong>production</strong>
+            </div>
+            <span class="trust-connector" aria-hidden="true">short-lived OIDC</span>
+            <div class="trust-node trust-node-azure">
+              <span>Azure managed identity</span>
+              <strong>No client secret</strong>
+            </div>
+            <span class="trust-connector" aria-hidden="true">resource scoped</span>
+            <div class="trust-node">
+              <span>Deployment target</span>
+              <strong>ACR + one Web App</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-tinted" id="adopt" aria-labelledby="adopt-title">
+        <div class="container adopt-grid">
+          <div>
+            <p class="eyebrow">Start with evidence</p>
+            <h2 id="adopt-title">Clone. Establish trust. Verify.</h2>
+            <p class="section-copy">
+              The baseline is readable without extra tooling. APM adds curated
+              shared agent context when your organization is ready to scale it.
+            </p>
+          </div>
+          <div class="commands" aria-label="Adoption commands">
+            <div class="command-row">
+              <code id="command-clone">gh repo create OWNER/REPO --template VeVarunSharma/github-agentic-sdlc-starter-pack --private --clone</code>
+              <button type="button" data-copy="command-clone">Copy</button>
+            </div>
+            <div class="command-row">
+              <code id="command-trust">./scripts/setup-azure-oidc.sh --repo OWNER/REPO</code>
+              <button type="button" data-copy="command-trust">Copy</button>
+            </div>
+            <div class="command-row">
+              <code id="command-verify">./scripts/verify.sh --strict</code>
+              <button type="button" data-copy="command-verify">Copy</button>
+            </div>
+            <p class="copy-status" id="copy-status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>GitHub Agentic SDLC Starter Pack</p>
+        <p>Human-governed. Secretless. Observable.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

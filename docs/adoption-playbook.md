@@ -17,9 +17,12 @@ how much you want to lift-and-shift vs cherry-pick.
    az login
    ./scripts/setup-azure-oidc.sh --repo <my-org>/<my-app>
    ```
-   This runs `terraform -chdir=infra/bootstrap apply` with `az login`
-   creds and sets the seven `AZURE_*` GitHub repo variables (not
-   secrets) that the CI/CD workflows read.
+   This queries immutable GitHub owner/repository IDs, runs
+   `terraform -chdir=infra/bootstrap apply` with `az login` credentials,
+   creates the three GitHub Environments, and sets every `AZURE_*`
+   repository variable needed before the first app apply. For a verified
+   older repository that still emits legacy subjects, add
+   `--legacy-subject`.
 4. **Verify locally**:
    ```bash
    ./scripts/bootstrap.sh    # apm install (optional) + npm ci + verify.sh
@@ -36,9 +39,10 @@ layers without disturbing your existing app:
 
 | What to copy | From | Why |
 |--------------|------|-----|
-| `.github/copilot-instructions.md` | This repo | Primary agent context. **Edit** to match your stack. |
+| `AGENTS.md`, `docs/README.md`, `.github/copilot-instructions.md` | This repo | Canonical map, catalog, and short compatibility bridge. **Edit** routing for your stack. |
 | `.github/instructions/` | This repo | Path-scoped guidance. **Edit** the `applyTo:` globs. |
-| `.github/prompts/`, `.github/chatmodes/`, `.github/agents/`, `.github/skills/`, `.github/hooks/`, `.github/mcp/` | This repo | Worked examples to fork from |
+| `.github/prompts/`, `.github/agents/`, `.github/skills/`, `.github/hooks/`, `.github/mcp/` | This repo | Client-labeled worked examples to fork from |
+| `tools/harness/` | This repo | Deterministic checks for the adopted surfaces |
 | `apm.yml`, `apm-policy.yml` | This repo | Trim the dep list to what you need |
 | `.github/workflows/apm-audit.yml`, `codeql.yml`, `dependency-review.yml`, `template-cleanup.yml` | This repo | Reusable verbatim |
 | `.github/rulesets/` | This repo | Adapt the required-check names to your job names |
@@ -55,6 +59,20 @@ If you only want one piece — say, the `oidc-rotation` skill or the
 `pr-reviewer` agent — copy that file alone. Each primitive is
 self-contained and has an `<!-- HAND-AUTHORED -->` marker plus inline
 comments explaining what it does and where Copilot reads it.
+
+## Mode 4 — Establish centralized enterprise Copilot governance
+
+For GitHub Enterprise Cloud administrators, copy the contents of
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) to the
+root of the organization repository selected as the `.github-private`
+managed-settings source. Do not copy the enclosing example directory and do not
+nested it under another `.github-private` directory.
+
+Follow the overlay README to render adopter-specific values, review the dry-run
+bootstrap preview, protect governance paths, pilot with selected teams, and
+select the source. The application starter cannot activate these controls from
+this repository. Enterprise AI Controls that are not represented by
+`managed-settings.json` remain separate UI or REST administration tasks.
 
 ## Org-wide rollout playbook
 
@@ -74,6 +92,9 @@ For platform / DevEx teams rolling this out across many repos:
 6. **Refresh upstream** quarterly: `apm update` against the latest
    awesome-copilot HEAD; review changes; tag a new version of your
    fork.
+7. **Review centralized Copilot policy** against the dated support matrix in
+   `examples/enterprise-governance/`; render and validate changes through its
+   protected `.github-private` review flow.
 
 ## Pre-flight checklist
 
@@ -81,6 +102,7 @@ Before you make the first commit on a brand-new derived repo:
 
 - [ ] `<owner>/<repo>` placeholders replaced (workflow or script)
 - [ ] Azure subscription + tenant chosen
+- [ ] `infra-apply` Environment has required reviewers; `infra-plan` is ungated
 - [ ] CODEOWNERS team exists (or replace `<owner>/<team>` with users)
 - [ ] Branch protection: evaluate-mode imported (rulesets)
 - [ ] GHAS settings reviewed (free tier covers everything in baseline

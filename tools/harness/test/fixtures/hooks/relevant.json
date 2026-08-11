@@ -1,0 +1,9 @@
+{
+  "sessionId": "fixture",
+  "timestamp": 0,
+  "cwd": "/workspace",
+  "toolName": "apply_patch",
+  "toolArgs": {
+    "path": "docs/README.md"
+  }
+}

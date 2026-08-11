@@ -1,5 +1,8 @@
 # Spike C — GitHub Branch Rulesets via `gh api`
 
+> **Historical evidence (last cataloged 2026-08-09).** Active settings guidance
+> lives in [`repo-settings-checklist.md`](./repo-settings-checklist.md).
+
 **Date:** 2025-07-08  
 **Status:** Research complete — ready for Phase 4 implementation  
 **Author:** Spike C research agent  

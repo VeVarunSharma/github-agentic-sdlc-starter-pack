@@ -11,8 +11,8 @@
   "files.trimFinalNewlines": true,
 
   // --- Copilot ---
-  // Have Copilot Chat read .github/instructions/*.instructions.md and
-  // .github/copilot-instructions.md (which APM regenerates from AGENTS.md).
+  // AGENTS.md is canonical. Copilot also reads the short compatibility bridge
+  // and matching path-scoped instruction files; APM does not generate either.
   "github.copilot.chat.codeGeneration.useInstructionFiles": true,
 
   // Auto-discover MCP servers configured in .vscode/mcp.json.

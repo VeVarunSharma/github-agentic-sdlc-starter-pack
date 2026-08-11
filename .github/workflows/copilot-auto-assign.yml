@@ -38,6 +38,7 @@ jobs:
   assign:
     name: Assign Copilot to issue
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: |
       vars.COPILOT_AUTO_ASSIGN == 'true' &&
       (

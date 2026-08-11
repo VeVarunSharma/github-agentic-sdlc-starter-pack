@@ -51,7 +51,7 @@ Either way the agent reads:
 - `.github/copilot-instructions.md` (always)
 - `.github/instructions/*.instructions.md` whose `applyTo:` glob
   matches the files it edits
-- Any chatmode the user invoked (`.github/chatmodes/*.chatmode.md`)
+- Any manually selected custom agent (`.github/agents/*.agent.md`)
 - Any skill it explicitly opens (e.g. `.github/skills/oidc-rotation/`)
 - The MCP servers configured in `.vscode/mcp.json` (editor) or
   `.github/mcp/mcp.json` (cloud agent)
@@ -72,10 +72,11 @@ required-for-merge once the repo graduates.
 Plus the existing **Dependabot**, **Secret Scanning + Push Protection**,
 and **Copilot code review** features that operate continuously.
 
-> **Why no `terraform plan` on PRs?** On dotcom, fork PRs don't get
-> cloud credentials by design. Plan + apply both happen inside
-> [`infra-apply.yml`](../.github/workflows/infra-apply.yml), which is
-> manually triggered against the `infra-apply` GitHub environment.
+> **Why no `terraform plan` on PRs?** Fork PRs do not receive workload
+> credentials. The manual [`infra-apply.yml`](../.github/workflows/infra-apply.yml)
+> workflow plans with the `infra-plan` identity, uploads a short-lived binary
+> plan with a SHA-256 output, then applies that exact artifact with the
+> approval-gated `infra-apply` identity.
 
 ### 4 — Human review
 
@@ -98,10 +99,12 @@ Required, even for agent-authored PRs. The reviewer:
 [`azure-deploy.yml`](../.github/workflows/azure-deploy.yml) triggers on
 push to `main` with `environment: production`. It exchanges the
 workflow's OIDC token for an Azure access token using a federated
-credential pinned to subject
-`repo:<owner>/<repo>:environment:production`. Then it builds, pushes
-the image to ACR, and updates the Web App. **No client secret stored in
-GitHub.**
+credential pinned to the exact immutable repository + `production`
+environment subject. Then it builds and pushes the image with OCI SBOM/provenance attestations,
+retains a SHA inventory tag, and deploys the pushed digest. The default B1
+path restores the exact prior `linuxFxVersion` if verification or `/health`
+fails. An opt-in S1+ staging-slot path warms before swap and swaps back when
+production fails. **No client secret is stored in GitHub.**
 
 If the PR also touched `infra/app/**`, the operator runs
 `infra-apply.yml` first against the `infra-apply` environment (which

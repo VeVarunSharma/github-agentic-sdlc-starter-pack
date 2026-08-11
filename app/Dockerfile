@@ -1,24 +1,42 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.18
 
-# Stage 1: install production dependencies
-FROM node:22-slim AS builder
+FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS dependencies
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
 
-# Stage 2: runtime image
-FROM node:22-slim
-WORKDIR /home/node/app
-COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node . .
+ARG NPM_CONFIG_REGISTRY
+ARG NPM_CONFIG_REPLACE_REGISTRY_HOST=never
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+    && npm cache clean --force
+
+FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS runtime
+WORKDIR /app
+
+ARG BUILD_SHA
+ARG BUILD_TIME
+ARG GITHUB_REPOSITORY
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    BUILD_SHA=${BUILD_SHA} \
+    BUILD_TIME=${BUILD_TIME} \
+    GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node public ./public
+COPY --chown=node:node src ./src
+
+# npm is required only in the dependency stage. Removing it from runtime
+# eliminates package-manager code and its transitive attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx
 
 USER node
-
 EXPOSE 3000
-ENV NODE_ENV=production \
-    PORT=3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+process.env.PORT+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD ["node", "--input-type=module", "-e", "const response = await fetch(`http://127.0.0.1:${process.env.PORT}/health`); process.exit(response.ok ? 0 : 1);"]
 
-CMD ["node", "index.js"]
+CMD ["node", "--import", "@azure/monitor-opentelemetry/loader", "--import", "./src/telemetry.js", "./src/server.js"]

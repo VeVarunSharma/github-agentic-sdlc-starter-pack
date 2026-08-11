@@ -1,0 +1,70 @@
+{
+  "_comment": "Governance repository branch ruleset.",
+  "_doc": [
+    "Protects the default branch and governance-critical paths in the",
+    ".github-private repository. Import via:",
+    "  gh api -X POST /repos/<owner>/<repo>/rulesets \\",
+    "    --input .github/rulesets/governance-branch-protect.json",
+    "",
+    "IMPORTANT: bypass_actors uses actor_type references only.",
+    "Do NOT use numeric bypass actor IDs (they vary by installation).",
+    "The AI-manager team bypass is configured through the GitHub UI",
+    "after import: Settings → Rules → <ruleset> → Add bypass → Teams.",
+    "",
+    "API version: 2022-11-28 (stable). No preview headers required."
+  ],
+  "name": "governance — protect main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true,
+        "automatic_copilot_code_review_enabled": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": true,
+        "required_status_checks": [
+          {
+            "context": "Validate governance overlay"
+          }
+        ]
+      }
+    },
+    {
+      "type": "commit_message_pattern",
+      "parameters": {
+        "name": "conventional commit",
+        "negate": false,
+        "operator": "regex",
+        "pattern": "^(feat|fix|chore|docs|refactor|test|ci)(\\([^)]+\\))?!?: .{1,100}"
+      }
+    }
+  ]
+}

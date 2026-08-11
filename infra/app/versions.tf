@@ -4,7 +4,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+      version = "~> 4.81"
     }
   }
 
@@ -14,7 +14,6 @@ terraform {
   # template-friendly. See azure-deploy.yml for the exact init line.
   backend "azurerm" {
     key              = "app/terraform.tfstate"
-    use_oidc         = true
     use_azuread_auth = true
   }
 }

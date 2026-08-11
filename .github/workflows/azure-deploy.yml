@@ -1,28 +1,6 @@
-# Azure deploy — Roll the sample app container forward
-#
-# Trigger: push to main (after squash merge).
-#
-# What this workflow does:
-#   1. `azure/login@v2` — OIDC, federated subject
-#      `repo:<owner>/<repo>:environment:production`.
-#   2. `az acr login` against the workload's ACR (created by
-#      `infra/app`).
-#   3. `docker build` + `docker push` (image tag = commit SHA).
-#   4. `az webapp config container set --container-image-name` —
-#      points the Linux Web App at the freshly-pushed image. The
-#      Web App's system-assigned MI pulls the image (AcrPull granted
-#      in `infra/app`).
-#   5. `az webapp restart` to pick up the new image immediately.
-#   6. Smoke test the `/health` endpoint.
-#
-# What this workflow does NOT do:
-#   * It does not run `terraform apply`. Infra changes flow through
-#     `infra-apply.yml` so a code-only deploy never silently mutates
-#     infrastructure.
-#   * It does not push the `:latest` tag. Every image is addressed by
-#     the immutable commit SHA so rollbacks are deterministic
-#     (`az webapp config container set --container-image-name
-#     <acr>/<image>:<previous-sha>`).
+# Build once, push with provenance/SBOM attestations, and deploy the immutable
+# OCI digest. The default B1 path mutates production directly with exact-image
+# rollback. An explicitly configured S1+ slot path warms and swaps staging.
 
 name: Azure Deploy
 
@@ -31,6 +9,7 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - 'scripts/smoke-health.sh'
       - '.github/workflows/azure-deploy.yml'
   workflow_dispatch:
 
@@ -40,7 +19,7 @@ permissions:
 
 concurrency:
   group: azure-deploy-production
-  cancel-in-progress: false   # never cancel a deploy mid-flight
+  cancel-in-progress: false
 
 env:
   IMAGE_NAME: sample-app
@@ -49,111 +28,486 @@ jobs:
   deploy:
     name: Build, push, deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     environment:
       name: production
-      url: https://${{ steps.webapp.outputs.url }}
+      url: https://${{ steps.current.outputs.production_hostname }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Azure login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Resolve workload settings
+      - name: Resolve and validate workload settings
         id: workload
+        env:
+          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_STAGING_SLOT_ENABLED: ${{ vars.AZURE_STAGING_SLOT_ENABLED }}
+          AZURE_STAGING_SLOT_NAME: ${{ vars.AZURE_STAGING_SLOT_NAME }}
+          AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
         run: |
-          # These four are written once by `infra-apply.yml`'s outputs
-          # OR by `scripts/setup-azure-oidc.sh`. They never live as
-          # secrets — they are repo *variables*.
           set -euo pipefail
           : "${AZURE_RESOURCE_GROUP:?must be set}"
           : "${AZURE_ACR_NAME:?must be set}"
           : "${AZURE_WEBAPP_NAME:?must be set}"
-          ACR_LOGIN_SERVER="${AZURE_ACR_NAME}.azurecr.io"
-          IMAGE_TAG="${GITHUB_SHA::12}"
-          IMAGE_REF="${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+          use_slot="$(printf '%s' "${AZURE_STAGING_SLOT_ENABLED:-false}" |
+            tr '[:upper:]' '[:lower:]')"
+          case "${use_slot}" in
+            true)
+              : "${AZURE_STAGING_SLOT_NAME:?must be set when slots are enabled}"
+              if [[ ! "${AZURE_STAGING_SLOT_NAME}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+                echo "::error::AZURE_STAGING_SLOT_NAME has an invalid format"
+                exit 1
+              fi
+              ;;
+            false) ;;
+            *)
+              echo "::error::AZURE_STAGING_SLOT_ENABLED must be true or false"
+              exit 1
+              ;;
+          esac
+
+          acr_login_server="${AZURE_ACR_NAME}.azurecr.io"
+          image_tag="${GITHUB_SHA::12}"
+          image_tag_ref="${acr_login_server}/${IMAGE_NAME}:${image_tag}"
+          build_time="$(git show -s --format=%cI "${GITHUB_SHA}")"
           {
-            echo "acr_login_server=${ACR_LOGIN_SERVER}"
-            echo "image_tag=${IMAGE_TAG}"
-            echo "image_ref=${IMAGE_REF}"
-          } >> "$GITHUB_OUTPUT"
-        env:
-          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
-          AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+            echo "acr_login_server=${acr_login_server}"
+            echo "build_time=${build_time}"
+            echo "image_tag=${image_tag}"
+            echo "image_tag_ref=${image_tag_ref}"
+            echo "slot_name=${AZURE_STAGING_SLOT_NAME:-staging}"
+            echo "use_slot=${use_slot}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: ACR login
-        # `az acr login` exchanges the OIDC-issued AAD token for an
-        # ACR refresh token. No admin key, no service-principal secret.
         run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
 
-      - name: Build + push image
-        uses: docker/build-push-action@v7
+      - name: Build and push image with attestations
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: app
           file: app/Dockerfile
           push: true
-          tags: ${{ steps.workload.outputs.image_ref }}
+          tags: ${{ steps.workload.outputs.image_tag_ref }}
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.workload.outputs.build_time }}
+            GITHUB_REPOSITORY=${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: true
+          provenance: mode=max
           sbom: true
 
-      - name: Update Web App container image
+      - name: Resolve immutable image reference
+        id: image
+        env:
+          PUSHED_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
+          set -euo pipefail
+          if [[ ! "${PUSHED_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Build did not return a valid pushed digest"
+            exit 1
+          fi
+          image_ref="${{ steps.workload.outputs.acr_login_server }}/${IMAGE_NAME}@${PUSHED_DIGEST}"
+          {
+            echo "digest=${PUSHED_DIGEST}"
+            echo "ref=${image_ref}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Capture current production state
+        id: current
+        run: |
+          set -euo pipefail
+          previous_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          production_hostname="$(
+            az webapp show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query defaultHostName \
+              --output tsv
+          )"
+
+          if [[ ! "${previous_linux_fx_version}" =~ ^DOCKER\|[^[:space:]]+$ ]]; then
+            echo "::error::Current linuxFxVersion is missing or is not a single custom-container image"
+            exit 1
+          fi
+          if [[ ! "${production_hostname}" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Could not resolve a valid production hostname"
+            exit 1
+          fi
+
+          {
+            echo "previous_linux_fx_version=${previous_linux_fx_version}"
+            echo "production_hostname=${production_hostname}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy digest directly and smoke production
+        id: direct
+        if: steps.workload.outputs.use_slot != 'true'
+        run: |
+          set -euo pipefail
+          expected_linux_fx_version="DOCKER|${{ steps.image.outputs.ref }}"
+
           az webapp config container set \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --name "${{ vars.AZURE_WEBAPP_NAME }}" \
-            --container-image-name "${{ steps.workload.outputs.image_ref }}"
-
-      - name: Restart Web App
-        run: |
+            --container-image-name "${{ steps.image.outputs.ref }}" \
+            --output none
           az webapp restart \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ vars.AZURE_WEBAPP_NAME }}"
-
-      - name: Resolve Web App URL
-        id: webapp
-        run: |
-          host="$(az webapp show \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --name "${{ vars.AZURE_WEBAPP_NAME }}" \
-            --query defaultHostName -o tsv)"
-          echo "url=${host}" >> "$GITHUB_OUTPUT"
+            --output none
 
-      - name: Smoke-test /health
+          actual_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          if [[ "${actual_linux_fx_version}" != "${expected_linux_fx_version}" ]]; then
+            echo "::error::Production linuxFxVersion does not reference the pushed digest"
+            exit 1
+          fi
+
+          ./scripts/smoke-health.sh \
+            "https://${{ steps.current.outputs.production_hostname }}/health"
+
+      - name: Roll back failed direct deployment
+        id: rollback-direct
+        if: >-
+          failure() &&
+          steps.workload.outputs.use_slot != 'true' &&
+          steps.current.outcome == 'success' &&
+          steps.direct.outcome == 'failure'
+        env:
+          PREVIOUS_LINUX_FX_VERSION: ${{ steps.current.outputs.previous_linux_fx_version }}
         run: |
           set -euo pipefail
-          url="https://${{ steps.webapp.outputs.url }}/health"
-          echo "Probing ${url}"
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            code="$(curl -s -o /tmp/health.json -w '%{http_code}' "${url}" || true)"
-            if [ "${code}" = "200" ]; then
-              echo "Healthy:"
-              cat /tmp/health.json
-              exit 0
-            fi
-            echo "  attempt ${i}: HTTP ${code} — retrying in 6s"
-            sleep 6
-          done
-          echo "::error::/health did not return 200 after 60s"
-          exit 1
+          previous_image="${PREVIOUS_LINUX_FX_VERSION#DOCKER|}"
+          if [[ -z "${previous_image}" || "${previous_image}" == "${PREVIOUS_LINUX_FX_VERSION}" ]]; then
+            echo "::error::Captured rollback image is invalid"
+            exit 1
+          fi
 
-      - name: Deploy summary
-        if: always()
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --container-image-name "${previous_image}" \
+            --output none
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --output none
+
+          restored_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          if [[ "${restored_linux_fx_version}" != "${PREVIOUS_LINUX_FX_VERSION}" ]]; then
+            echo "::error::Rollback did not restore the exact prior linuxFxVersion"
+            exit 1
+          fi
+
+          ./scripts/smoke-health.sh \
+            "https://${{ steps.current.outputs.production_hostname }}/health"
+          echo "restored=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify slot plan, identities, RBAC, and settings
+        id: slot-preflight
+        if: steps.workload.outputs.use_slot == 'true'
+        run: |
+          set -euo pipefail
+          slot="${{ steps.workload.outputs.slot_name }}"
+          temp_dir="$(mktemp -d "${RUNNER_TEMP}/slot-preflight.XXXXXX")"
+          trap 'rm -rf "${temp_dir}"' EXIT
+
+          plan_id="$(
+            az webapp show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query serverFarmId \
+              --output tsv
+          )"
+          plan_tier="$(az appservice plan show --ids "${plan_id}" --query sku.tier --output tsv)"
+          case "${plan_tier}" in
+            Standard | Premium* | Isolated*) ;;
+            *)
+              echo "::error::Staging slots require Standard, Premium, or Isolated; found ${plan_tier}"
+              exit 1
+              ;;
+          esac
+
+          production_principal="$(
+            az webapp identity show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query principalId \
+              --output tsv
+          )"
+          slot_principal="$(
+            az webapp identity show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --slot "${slot}" \
+              --query principalId \
+              --output tsv
+          )"
+          if [[ -z "${production_principal}" || -z "${slot_principal}" ||
+            "${production_principal}" == "${slot_principal}" ]]; then
+            echo "::error::Production and staging require distinct system-assigned identities"
+            exit 1
+          fi
+
+          registry_id="$(
+            az acr show \
+              --name "${{ vars.AZURE_ACR_NAME }}" \
+              --query id \
+              --output tsv
+          )"
+          for principal in "${production_principal}" "${slot_principal}"; do
+            assignment_count="$(
+              az role assignment list \
+                --assignee-object-id "${principal}" \
+                --scope "${registry_id}" \
+                --role AcrPull \
+                --query 'length(@)' \
+                --output tsv
+            )"
+            if [[ "${assignment_count}" -lt 1 ]]; then
+              echo "::error::A Web App identity is missing registry-scoped AcrPull"
+              exit 1
+            fi
+          done
+
+          az webapp config show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --output json > "${temp_dir}/production-config.json"
+          az webapp config show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --slot "${slot}" \
+            --output json > "${temp_dir}/slot-config.json"
+          for config in production-config slot-config; do
+            jq -e '
+              .acrUseManagedIdentityCreds == true and
+              .ftpsState == "Disabled" and
+              .http20Enabled == true and
+              .minTlsVersion == "1.2"
+            ' "${temp_dir}/${config}.json" >/dev/null
+          done
+
+          az webapp config appsettings list \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --output json |
+            jq -S '
+              map(select(.name | IN(
+                "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "WEBSITE_ADD_SITENAME_BINDINGS_IN_APPHOST_CONFIG",
+                "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                "WEBSITES_PORT"
+              ))) | sort_by(.name)
+            ' > "${temp_dir}/production-settings.json"
+          az webapp config appsettings list \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --slot "${slot}" \
+            --output json |
+            jq -S '
+              map(select(.name | IN(
+                "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "WEBSITE_ADD_SITENAME_BINDINGS_IN_APPHOST_CONFIG",
+                "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                "WEBSITES_PORT"
+              ))) | sort_by(.name)
+            ' > "${temp_dir}/slot-settings.json"
+
+          jq -e 'length == 4' "${temp_dir}/production-settings.json" >/dev/null
+          jq -e 'length == 4' "${temp_dir}/slot-settings.json" >/dev/null
+          if ! cmp --silent \
+            "${temp_dir}/production-settings.json" \
+            "${temp_dir}/slot-settings.json"; then
+            echo "::error::Production and staging secure app settings differ"
+            exit 1
+          fi
+
+      - name: Deploy digest to staging and warm it
+        id: stage
+        if: steps.workload.outputs.use_slot == 'true'
+        run: |
+          set -euo pipefail
+          slot="${{ steps.workload.outputs.slot_name }}"
+          expected_linux_fx_version="DOCKER|${{ steps.image.outputs.ref }}"
+
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --slot "${slot}" \
+            --container-image-name "${{ steps.image.outputs.ref }}" \
+            --output none
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --slot "${slot}" \
+            --output none
+
+          slot_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --slot "${slot}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          if [[ "${slot_linux_fx_version}" != "${expected_linux_fx_version}" ]]; then
+            echo "::error::Staging linuxFxVersion does not reference the pushed digest"
+            exit 1
+          fi
+
+          slot_hostname="$(
+            az webapp show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --slot "${slot}" \
+              --query defaultHostName \
+              --output tsv
+          )"
+          if [[ ! "${slot_hostname}" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Could not resolve a valid staging hostname"
+            exit 1
+          fi
+          echo "slot_hostname=${slot_hostname}" >> "${GITHUB_OUTPUT}"
+          ./scripts/smoke-health.sh "https://${slot_hostname}/health"
+
+      - name: Swap staging into production
+        id: swap
+        if: steps.workload.outputs.use_slot == 'true'
+        run: |
+          set -euo pipefail
+          echo "attempted=true" >> "${GITHUB_OUTPUT}"
+          az webapp deployment slot swap \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --slot "${{ steps.workload.outputs.slot_name }}" \
+            --target-slot production \
+            --output none
+
+      - name: Verify swapped digest and smoke production
+        id: production-after-swap
+        if: steps.workload.outputs.use_slot == 'true'
+        run: |
+          set -euo pipefail
+          expected_linux_fx_version="DOCKER|${{ steps.image.outputs.ref }}"
+          production_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          if [[ "${production_linux_fx_version}" != "${expected_linux_fx_version}" ]]; then
+            echo "::error::Production linuxFxVersion does not reference the swapped digest"
+            exit 1
+          fi
+          ./scripts/smoke-health.sh \
+            "https://${{ steps.current.outputs.production_hostname }}/health"
+
+      - name: Restore production after failed slot promotion
+        id: rollback-slot
+        if: >-
+          failure() &&
+          steps.workload.outputs.use_slot == 'true' &&
+          steps.swap.outputs.attempted == 'true'
+        env:
+          PREVIOUS_LINUX_FX_VERSION: ${{ steps.current.outputs.previous_linux_fx_version }}
+        run: |
+          set -euo pipefail
+          current_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          new_linux_fx_version="DOCKER|${{ steps.image.outputs.ref }}"
+
+          if [[ "${current_linux_fx_version}" == "${new_linux_fx_version}" ]]; then
+            az webapp deployment slot swap \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --slot "${{ steps.workload.outputs.slot_name }}" \
+              --target-slot production \
+              --output none
+          elif [[ "${current_linux_fx_version}" != "${PREVIOUS_LINUX_FX_VERSION}" ]]; then
+            echo "::error::Production image is neither the prior nor promoted digest; refusing an ambiguous swap"
+            exit 1
+          fi
+
+          restored_linux_fx_version="$(
+            az webapp config show \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+              --query linuxFxVersion \
+              --output tsv
+          )"
+          if [[ "${restored_linux_fx_version}" != "${PREVIOUS_LINUX_FX_VERSION}" ]]; then
+            echo "::error::Slot rollback did not restore the exact prior linuxFxVersion"
+            exit 1
+          fi
+
+          ./scripts/smoke-health.sh \
+            "https://${{ steps.current.outputs.production_hostname }}/health"
+          echo "restored=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish successful deployment summary
+        if: success()
         run: |
           {
-            echo "## Deployed"
-            echo ""
-            echo "* **Image:** \`${{ steps.workload.outputs.image_ref }}\`"
+            echo "## Deployed immutable image"
+            echo
+            echo "* **Digest:** \`${{ steps.image.outputs.ref }}\`"
+            echo "* **Inventory tag:** \`${{ steps.workload.outputs.image_tag_ref }}\`"
             echo "* **Web App:** \`${{ vars.AZURE_WEBAPP_NAME }}\`"
-            echo "* **URL:** https://${{ steps.webapp.outputs.url }}"
-            echo "* **SHA:** \`${{ github.sha }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo "* **URL:** https://${{ steps.current.outputs.production_hostname }}"
+            echo "* **Path:** \`${{ steps.workload.outputs.use_slot == 'true' && 'staging slot swap' || 'direct with rollback' }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish failed deployment or rollback summary
+        if: failure()
+        run: |
+          {
+            echo "## Deployment failed"
+            echo
+            if [[ "${{ steps.rollback-direct.outputs.restored }}" == "true" ||
+              "${{ steps.rollback-slot.outputs.restored }}" == "true" ]]; then
+              echo "Production was restored to the exact prior image and its health check passed."
+            else
+              echo "No successful deployment is being reported. Review the failed step and production state."
+            fi
+            echo
+            echo "* **Attempted digest:** \`${{ steps.image.outputs.ref }}\`"
+            echo "* **Web App:** \`${{ vars.AZURE_WEBAPP_NAME }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

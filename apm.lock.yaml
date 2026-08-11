@@ -1,11 +1,13 @@
 lockfile_version: '1'
-generated_at: '2026-05-08T05:05:06.386822+00:00'
-apm_version: 0.12.4
+generated_at: '2026-08-09T22:42:00.539428+00:00'
+apm_version: 0.28.0
 dependencies:
 - repo_url: github/awesome-copilot
+  name: awesome-copilot-azure-naming
   host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  version: 1.0.0
   virtual_path: instructions/azure-naming.instructions.md
   is_virtual: true
   package_type: apm_package
@@ -15,21 +17,11 @@ dependencies:
     .github/instructions/azure-naming.instructions.md: sha256:f5afd79e5a29c7288b6411a73b2bc8ee28ec8a466f3657f90a1cde7acb2502f9
   content_hash: sha256:1a6bb83cc249c585935602424a462085487b6f16bb6c0a754502d4d06d22d19b
 - repo_url: github/awesome-copilot
+  name: awesome-copilot-containerization-docker-best-practices
   host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  virtual_path: instructions/code-review-generic.instructions.md
-  is_virtual: true
-  package_type: apm_package
-  deployed_files:
-  - .github/instructions/code-review-generic.instructions.md
-  deployed_file_hashes:
-    .github/instructions/code-review-generic.instructions.md: sha256:e6917309e3e986cde1650768cc871f54e5d054e90c4518afb5c937941ee212a9
-  content_hash: sha256:31212689590950d38ab751ad947ac94078ec57eb71a497c5b126135bc05dc7e1
-- repo_url: github/awesome-copilot
-  host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  version: 1.0.0
   virtual_path: instructions/containerization-docker-best-practices.instructions.md
   is_virtual: true
   package_type: apm_package
@@ -39,9 +31,11 @@ dependencies:
     .github/instructions/containerization-docker-best-practices.instructions.md: sha256:92736c4f0869bbfee1799012644bb54b32965ee32db35160a846f5e184750a17
   content_hash: sha256:1c00a635bd064e21c1c7e7192e4a5e15fe6ceb18847e3ef09dc248d7c4acc094
 - repo_url: github/awesome-copilot
+  name: awesome-copilot-github-actions-ci-cd-best-practices
   host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  version: 1.0.0
   virtual_path: instructions/github-actions-ci-cd-best-practices.instructions.md
   is_virtual: true
   package_type: apm_package
@@ -51,21 +45,11 @@ dependencies:
     .github/instructions/github-actions-ci-cd-best-practices.instructions.md: sha256:6889e78ce6ece4326e3e1188c458c3c50e4eb21f132e01c6b2564a0b2005561c
   content_hash: sha256:a520b3d373b6b6d1c5b2d6715272321ddaf51c8ef6876fff5f56dfba2c1610b6
 - repo_url: github/awesome-copilot
+  name: awesome-copilot-terraform
   host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  virtual_path: instructions/security-and-owasp.instructions.md
-  is_virtual: true
-  package_type: apm_package
-  deployed_files:
-  - .github/instructions/security-and-owasp.instructions.md
-  deployed_file_hashes:
-    .github/instructions/security-and-owasp.instructions.md: sha256:2e8a79305e0451ec2c2f32a610d7ac95da00b288bfe826d453b9917462c49500
-  content_hash: sha256:d40edcfdf851f140acddc14db5637a850b67874059136e5414c3e444a4f04f79
-- repo_url: github/awesome-copilot
-  host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  version: 1.0.0
   virtual_path: instructions/terraform.instructions.md
   is_virtual: true
   package_type: apm_package
@@ -75,26 +59,72 @@ dependencies:
     .github/instructions/terraform.instructions.md: sha256:23cf9ba17bcd3836c40b7b42359c3783c8230b7359b4e8a7d214eb6ed8a4b691
   content_hash: sha256:7cbc2a84e48dff15d731c976e742fcd7e2b1ff1b21c7a651544aed887608f7e1
 - repo_url: github/awesome-copilot
+  name: review-and-refactor
   host: github.com
-  resolved_commit: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
-  resolved_ref: 6d676fa6fe7df117e6ec11f96330ae277a1bbd71
+  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  version: unknown
   virtual_path: skills/review-and-refactor
   is_virtual: true
   package_type: claude_skill
   deployed_files:
   - .agents/skills/review-and-refactor
+  - .agents/skills/review-and-refactor/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/review-and-refactor/SKILL.md: sha256:95b48ed4b137777ddc87b77cb0873ed7f485141a517825e71af1a984cf5a6cd6
   content_hash: sha256:9236d06a1500089ddb46975b866e9a63478e502afe7095b1980c618678a7c7fe
-mcp_servers:
-- com.microsoft/azure
-- io.github.github/github-mcp-server
-- microsoftdocs/mcp
-mcp_configs:
-  com.microsoft/azure:
-    name: com.microsoft/azure
-    transport: stdio
-  io.github.github/github-mcp-server:
-    name: io.github.github/github-mcp-server
-    transport: http
-  microsoftdocs/mcp:
-    name: microsoftdocs/mcp
-    transport: http
+deployments:
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/review-and-refactor
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/skills/review-and-refactor
+  active_owner: github/awesome-copilot/skills/review-and-refactor
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/review-and-refactor/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/skills/review-and-refactor
+  active_owner: github/awesome-copilot/skills/review-and-refactor
+  content_hash: sha256:95b48ed4b137777ddc87b77cb0873ed7f485141a517825e71af1a984cf5a6cd6
+- kind: project-relative
+  target: copilot
+  value: .github/instructions/azure-naming.instructions.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/instructions/azure-naming.instructions.md
+  active_owner: github/awesome-copilot/instructions/azure-naming.instructions.md
+  content_hash: sha256:f5afd79e5a29c7288b6411a73b2bc8ee28ec8a466f3657f90a1cde7acb2502f9
+- kind: project-relative
+  target: copilot
+  value: .github/instructions/containerization-docker-best-practices.instructions.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md
+  active_owner: github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md
+  content_hash: sha256:92736c4f0869bbfee1799012644bb54b32965ee32db35160a846f5e184750a17
+- kind: project-relative
+  target: copilot
+  value: .github/instructions/github-actions-ci-cd-best-practices.instructions.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md
+  active_owner: github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md
+  content_hash: sha256:6889e78ce6ece4326e3e1188c458c3c50e4eb21f132e01c6b2564a0b2005561c
+- kind: project-relative
+  target: copilot
+  value: .github/instructions/terraform.instructions.md
+  runtime: null
+  scope: project
+  owners:
+  - github/awesome-copilot/instructions/terraform.instructions.md
+  active_owner: github/awesome-copilot/instructions/terraform.instructions.md
+  content_hash: sha256:23cf9ba17bcd3836c40b7b42359c3783c8230b7359b4e8a7d214eb6ed8a4b691

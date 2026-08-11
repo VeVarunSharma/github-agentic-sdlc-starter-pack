@@ -1,0 +1,63 @@
+name: Policy exception request
+description: Request an exception to an enterprise Copilot governance policy for a specific team
+title: "[Policy Exception] "
+labels: ["policy-exception", "governance"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Policy exceptions are rare and require governance team approval.**
+        Floor keys (sandbox.enabled, allowBypass, captureContent, and strict marketplace sources)
+        cannot be granted exceptions under any circumstances. If your request touches
+        a floor key, it will be automatically rejected.
+
+  - type: textarea
+    id: requesting-team
+    attributes:
+      label: Requesting team
+      description: GitHub team slug (e.g. ai-platform-pioneers)
+    validations:
+      required: true
+
+  - type: textarea
+    id: exception-requested
+    attributes:
+      label: Exception requested
+      description: Which setting should differ from the enterprise baseline, and what value?
+    validations:
+      required: true
+
+  - type: textarea
+    id: business-justification
+    attributes:
+      label: Business justification
+      description: Why does this team need a deviation? What business capability does it enable?
+    validations:
+      required: true
+
+  - type: textarea
+    id: security-assessment
+    attributes:
+      label: Security risk assessment
+      description: What is the security risk of this exception? What mitigations are in place?
+    validations:
+      required: true
+
+  - type: textarea
+    id: sunset-plan
+    attributes:
+      label: Sunset plan
+      description: When and how will this exception be removed? Exceptions should be time-bounded.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I confirm this does NOT touch a floor key (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, or strict marketplace sources)
+          required: true
+        - label: I have read docs/reference/team-override-model.md
+          required: true

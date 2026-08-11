@@ -1,148 +1,211 @@
-# Infra apply — Manual cloud-backed Terraform
+# Manual infrastructure change with a reviewed, immutable saved-plan handoff.
 #
-# Why this is split from azure-deploy.yml:
-#   * Code deploys (push to main) should NEVER silently mutate
-#     infrastructure. If they could, an unrelated commit on main
-#     would risk an unintended Azure change. Splitting infra into a
-#     separate, manually-triggered workflow makes the change
-#     deliberate and auditable.
-#   * The `infra-apply` GitHub Environment gates this workflow with
-#     a required approval (configure under Settings -> Environments).
-#     `azure-deploy.yml` uses the `production` environment instead,
-#     which can have its own (typically lower-friction) approval
-#     policy.
-#
-# What this workflow does:
-#   1. `azure/login@v2` — OIDC, federated subject
-#      `repo:<owner>/<repo>:environment:infra-apply`.
-#   2. `terraform init` — remote state in the bootstrap-provisioned
-#      storage account (auth via OIDC, no shared key).
-#   3. `terraform plan` — full plan, output saved to job summary.
-#   4. `terraform apply -auto-approve` — only after the environment
-#      approval has been granted.
-#
-# Note on `pull_request` runs: PR validation runs in `ci.yml`
-# (`fmt -check + validate` only). PRs do NOT touch this workflow,
-# regardless of source branch.
+# The plan and apply jobs use different OIDC identities and GitHub
+# Environments. Provider identity is supplied only through ARM_* environment
+# variables, so it is not captured in the saved plan.
 
 name: Infra Apply
 
 on:
   workflow_dispatch:
-    inputs:
-      module:
-        description: 'Which infra module to apply'
-        required: true
-        default: 'app'
-        type: choice
-        options:
-          - app
-          # `bootstrap` is intentionally excluded. It is human-run with
-          # `az login` (see infra/bootstrap/README.md). The federated
-          # credentials it provisions are the trust anchor for this
-          # workflow — running bootstrap from CI would be circular.
-      auto_approve:
-        description: 'Apply without manual approval gate (overrides environment approval). USE WITH CARE.'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
-  id-token: write   # required for OIDC
   contents: read
+  id-token: write
 
 concurrency:
-  group: infra-apply-${{ inputs.module }}
-  cancel-in-progress: false   # never cancel an in-flight apply
+  group: infra-apply-app
+  cancel-in-progress: false
 
 jobs:
-  apply:
-    name: terraform apply (${{ inputs.module }})
+  plan:
+    name: terraform plan (app)
     runs-on: ubuntu-latest
-    environment: infra-apply
+    timeout-minutes: 30
+    environment: infra-plan
+    outputs:
+      plan_sha256: ${{ steps.checksum.outputs.sha256 }}
     defaults:
       run:
-        working-directory: infra/${{ inputs.module }}
+        shell: bash
+        working-directory: infra/app
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_PLAN_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_USE_AZUREAD: 'true'
+      ARM_USE_OIDC: 'true'
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Azure login (OIDC)
-        uses: azure/login@v3
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ref: ${{ github.sha }}
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.9.8'
           terraform_wrapper: false
 
+      - name: terraform fmt
+        run: terraform fmt -check -diff -recursive
+
       - name: terraform init
-        env:
-          # azurerm backend will use OIDC + AAD auth; both come from
-          # `azure/login@v2` above. ARM_USE_OIDC tells the backend to
-          # request an ID token from GitHub at init time.
-          ARM_USE_OIDC: 'true'
-          ARM_USE_AZUREAD: 'true'
         run: |
           terraform init \
             -input=false \
+            -lockfile=readonly \
             -backend-config="resource_group_name=${{ vars.AZURE_TFSTATE_RG }}" \
             -backend-config="storage_account_name=${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ vars.AZURE_TFSTATE_CONTAINER }}"
-
-      - name: terraform fmt -check
-        run: terraform fmt -check -recursive
 
       - name: terraform validate
         run: terraform validate -no-color
 
       - name: terraform plan
-        id: plan
-        env:
-          ARM_USE_OIDC: 'true'
-          ARM_USE_AZUREAD: 'true'
         run: |
           terraform plan \
             -input=false \
-            -no-color \
+            -lock-timeout=5m \
             -out=tfplan \
-            -var="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
-            -var="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
-            -var="client_id=${{ vars.AZURE_CLIENT_ID }}" \
+            -var="acr_name=${{ vars.AZURE_ACR_NAME }}" \
+            -var="deploy_principal_id=${{ vars.AZURE_DEPLOY_PRINCIPAL_ID }}" \
+            -var="environment=${{ vars.AZURE_ENVIRONMENT }}" \
+            -var="region_short=${{ vars.AZURE_REGION_SHORT }}" \
             -var="resource_group_name=${{ vars.AZURE_RESOURCE_GROUP }}" \
-            -var="acr_name=${{ vars.AZURE_ACR_NAME }}"
+            -var="staging_slot_enabled=${{ vars.AZURE_STAGING_SLOT_ENABLED || 'false' }}" \
+            -var="staging_slot_name=${{ vars.AZURE_STAGING_SLOT_NAME || 'staging' }}" \
+            -var="web_app_name=${{ vars.AZURE_WEBAPP_NAME }}" \
+            -var="workload_name=${{ vars.AZURE_WORKLOAD_NAME }}"
 
-      - name: Plan summary
+      - name: Publish sanitized plan summary
         run: |
-          {
-            echo "## terraform plan — \`infra/${{ inputs.module }}\`"
-            echo ""
-            echo "<details><summary>Plan output</summary>"
-            echo ""
-            echo '```'
-            terraform show -no-color tfplan
-            echo '```'
-            echo ""
-            echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
 
-      - name: terraform apply
+          escape_html() {
+            sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+          }
+
+          changes_file="${RUNNER_TEMP}/terraform-resource-changes.tsv"
+          terraform show -json tfplan |
+            jq -r '.resource_changes[]? | [.address, (.change.actions | join("+"))] | @tsv' \
+              > "${changes_file}"
+
+          {
+            echo "## Terraform plan: infra/app"
+            echo
+            echo "Only resource addresses and allowlisted action names are shown."
+            echo
+            if [[ ! -s "${changes_file}" ]]; then
+              echo "No resource changes."
+            else
+              while IFS=$'\t' read -r address actions; do
+                case "${actions}" in
+                  create | delete | delete+create | create+delete | no-op | read | update) ;;
+                  *) actions="unknown" ;;
+                esac
+                safe_address="$(printf '%s' "${address}" | escape_html)"
+                printf -- '- <code>%s</code>: %s\n' "${safe_address}" "${actions}"
+              done < "${changes_file}"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Calculate plan checksum
+        id: checksum
+        run: |
+          checksum="$(sha256sum tfplan | awk '{print $1}')"
+          echo "sha256=${checksum}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload immutable binary plan
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: tfplan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/app/tfplan
+          if-no-files-found: error
+          retention-days: 5
+          compression-level: 0
+
+  apply:
+    name: terraform apply (app)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: infra-apply
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra/app
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_APPLY_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_USE_AZUREAD: 'true'
+      ARM_USE_OIDC: 'true'
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: |
+          terraform init \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="resource_group_name=${{ vars.AZURE_TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.AZURE_TFSTATE_CONTAINER }}"
+
+      - name: Download exact binary plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tfplan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/app
+
+      - name: Verify plan checksum
         env:
-          ARM_USE_OIDC: 'true'
-          ARM_USE_AZUREAD: 'true'
-        run: terraform apply -input=false -auto-approve tfplan
-
-      - name: Capture outputs for downstream workflows
-        id: outputs
+          EXPECTED_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
         run: |
+          actual_sha256="$(sha256sum tfplan | awk '{print $1}')"
+          if [[ -z "${EXPECTED_SHA256}" || "${actual_sha256}" != "${EXPECTED_SHA256}" ]]; then
+            echo "::error::Saved Terraform plan checksum mismatch"
+            exit 1
+          fi
+
+      - name: terraform apply saved plan
+        run: terraform apply -input=false -auto-approve -lock-timeout=5m tfplan
+
+      - name: Publish allowlisted outputs
+        run: |
+          set -euo pipefail
+
+          escape_html() {
+            sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+          }
+
           {
-            echo "## Outputs"
-            echo ""
-            echo '```json'
-            terraform output -json
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo "## Applied outputs"
+            echo
+            for key in resource_group_name acr_name acr_login_server web_app_name web_app_url; do
+              value="$(terraform output -raw "${key}")"
+              safe_value="$(printf '%s' "${value}" | escape_html)"
+              printf -- '- **%s:** <code>%s</code>\n' "${key}" "${safe_value}"
+            done
+            for key in staging_slot_name staging_slot_hostname; do
+              value="$(terraform output -raw "${key}")"
+              if [[ -n "${value}" ]]; then
+                safe_value="$(printf '%s' "${value}" | escape_html)"
+                printf -- '- **%s:** <code>%s</code>\n' "${key}" "${safe_value}"
+              fi
+            done
+          } >> "${GITHUB_STEP_SUMMARY}"

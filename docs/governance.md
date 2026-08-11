@@ -1,7 +1,27 @@
 # Governance
 
-How `apm-policy.yml` is enforced, what the audit gate checks, and what
-"break-glass" looks like.
+How repository package policy and the centralized enterprise Copilot tier are
+governed, enforced, and recovered.
+
+## Enterprise Copilot governance
+
+[`examples/enterprise-governance/`](../examples/enterprise-governance/) is the
+copy-ready source for a selected organization `.github-private` repository. It
+contains annotated managed settings, generated strict JSON, team
+specializations, an enterprise plugin marketplace, enterprise agents,
+protection examples, rollout guidance, and deterministic validation.
+
+The overlay is source material, not active policy. GitHub enforces
+server-managed settings only after an enterprise administrator copies it to the
+governance repository, renders organization-specific values, protects the
+paths, and selects that source. MDM policy outranks server-managed policy,
+which outranks file-based and user settings; sandbox restrictions combine
+most-restrictively. Enterprise AI Controls outside `managed-settings.json`
+remain separate administrative surfaces.
+
+The overlay's bootstrap is dry-run by default. Cloud or enterprise mutation
+requires explicit identifiers, `--apply`, confirmation, suitable admin
+authentication, and review of the printed operations.
 
 ## Policy file
 
@@ -14,7 +34,7 @@ Key sections:
 
 ```yaml
 enforcement: block          # audit failure blocks the PR
-fetch_failure: warn         # network/registry hiccup ≠ policy violation
+fetch_failure: block        # treat registry download failures as policy violations
 
 dependencies:
   allow:
@@ -29,21 +49,26 @@ mcp:
 
 unmanaged_files:
   action: warn              # tolerate hand-authored .github/ files
-
-apm_cli_version: "0.12.4"   # pin the audit binary
 ```
+
+> **Note:** `apm_cli_version` is **not** a valid policy schema field in
+> APM v0.28.0. The CLI version is pinned by `scripts/install-apm.sh` and
+> the workflow that calls it — not by the policy YAML.
 
 ## What the audit gate does
 
 On every PR, [`apm-audit.yml`](../.github/workflows/apm-audit.yml) runs:
 
-1. `apm install --target copilot` — re-resolves dependencies against
-   `apm.yml` and `apm.lock.yaml`. Fails if the lockfile is stale or
-   any APM-managed file has drifted.
-2. `apm audit --ci --policy ./apm-policy.yml` — applies the policy.
-   Emits SARIF.
-3. `github/codeql-action/upload-sarif@v3` — uploads SARIF so findings
-   appear in the **Security** tab.
+1. `apm install --target copilot` — restores the dependency cache in a clean
+   runner. The workflow fails if this changes any committed files.
+2. `apm install --frozen --target copilot` — replays the cached resolution.
+   The `--frozen` flag exits non-zero if the lockfile is out of sync with the
+   manifest. APM-managed files must match the locked resolution.
+3. `apm audit --ci --policy ./apm-policy.yml --format sarif --output apm-audit.sarif`
+   — applies the policy and emits a SARIF file at the specified path.
+4. `github/codeql-action/upload-sarif` pinned to v4.37.6's immutable commit
+   (`5595ccaf912efad79be6eef63a5619ff05969be3`) — uploads the SARIF so
+   findings appear in the **Security** tab.
 
 It does **not** run `apm compile -t copilot` because that would clobber
 the hand-authored `.github/copilot-instructions.md`. See

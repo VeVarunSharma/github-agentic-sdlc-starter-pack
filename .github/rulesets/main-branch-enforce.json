@@ -52,10 +52,12 @@
         "strict_required_status_checks_policy": true,
         "do_not_enforce_on_create": true,
         "required_status_checks": [
-          { "context": "app — lint + tests" },
+          { "context": "app — lint + tests + audit" },
           { "context": "terraform — fmt + validate (infra/bootstrap)" },
           { "context": "terraform — fmt + validate (infra/app)" },
-          { "context": "docker — build sample app image (smoke)" },
+          { "context": "terraform — fmt + validate (examples/azure-container-apps/infra/app)" },
+          { "context": "docker — lint + scan + health smoke" },
+          { "context": "repository — harness + workflows + shell + JSON" },
           { "context": "Analyze (javascript-typescript)" },
           { "context": "apm install + audit" },
           { "context": "Review dependency changes" }

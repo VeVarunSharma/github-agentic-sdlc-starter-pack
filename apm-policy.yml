@@ -7,11 +7,14 @@
 # primitives) are surfaced.
 #
 # Schema reference: https://microsoft.github.io/apm/enterprise/policy-reference/
-# Confirmed against the upstream schema at this commit. Pin APM CLI to
-# v0.12.4 (matching apm.yml) so the schema stays stable.
+# Confirmed against APM CLI v0.28.0 (2026-08-06). The CLI is installed
+# via scripts/install-apm.sh and pinned in CI; bump by re-running that
+# script with a new version and updating the pin in the install workflow.
 #
-# The Policy Reference notes the schema is experimental; bump
-# `apm_version` in apm.yml in lockstep with any APM CLI upgrade.
+# Verified field set: enforcement, fetch_failure ∈ {block,warn},
+# dependencies.{allow,deny,require}, mcp.{transport,trust_transitive,
+# self_defined}, unmanaged_files.action. There is NO apm_cli_version
+# field in this schema — the CLI version pin lives in the CI workflow.
 
 name: "GitHub Agentic SDLC Starter Pack policy"
 version: "1.0.0"
@@ -72,8 +75,8 @@ mcp:
 # survive `apm install` and CI audit. Setting `action: warn` makes
 # `apm audit --ci` PASS the unmanaged-files check while still surfacing
 # the file list as a warning, so reviewers can spot accidentally
-# committed files. The hand-authored chatmode/prompt/skill/MCP
-# primitives are NOT in the monitored directory set, so they are not
+# committed files. Hand-authored prompt/skill/MCP
+# primitives outside the monitored directory set are not
 # flagged at all.
 #
 # Promote to `deny` only if you switch this repo to a fully

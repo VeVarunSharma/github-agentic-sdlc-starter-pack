@@ -1,0 +1,12 @@
+{
+  "enterprise": "example-enterprise",
+  "organization": "example-org",
+  "governanceRepository": ".github-private",
+  "governanceRef": "1111111111111111111111111111111111111111",
+  "otlpEndpoint": "https://otel.example.internal/v1/traces",
+  "deployEnvironment": "production",
+  "internalMcpUrl": "https://mcp.example.internal/standards",
+  "pioneerMcpUrl": "https://mcp.example.internal/pioneers",
+  "standardTeam": "developers",
+  "pioneerTeam": "ai-platform-pioneers"
+}

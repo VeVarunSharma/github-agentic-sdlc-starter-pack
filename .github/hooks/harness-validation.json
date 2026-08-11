@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/scripts/validate-agent-edits.sh",
+        "powershell": "pwsh -NoProfile -File ./.github/hooks/scripts/validate-agent-edits.ps1",
+        "cwd": ".",
+        "timeoutSec": 120
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "./.github/hooks/scripts/validate-agent-edits.sh",
+        "powershell": "pwsh -NoProfile -File ./.github/hooks/scripts/validate-agent-edits.ps1",
+        "cwd": ".",
+        "timeoutSec": 120
+      }
+    ]
+  }
+}

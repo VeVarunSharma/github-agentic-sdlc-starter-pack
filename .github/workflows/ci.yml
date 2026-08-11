@@ -1,30 +1,28 @@
 # CI — Pull request gate
 #
 # What it gates:
-#   * `app/` ............. ESLint + node:test (no extra framework needed)
+#   * `app/` ............. ESLint + node:test + production dependency audit
 #   * `infra/bootstrap/`,
 #     `infra/app/`,
 #     `examples/**/infra/`  Terraform `fmt -check` + `validate` only.
 #                          We deliberately do NOT run `terraform plan`
 #                          on PRs because that would either:
-#                            (a) require subscription-scope credentials
-#                                accessible from `pull_request` runs
-#                                (the OIDC subject `pull_request` is
-#                                granted in `infra/bootstrap` only for
-#                                this static-validation purpose), or
+#                            (a) require workload credentials accessible
+#                                from `pull_request` runs (this template
+#                                deliberately has no PR federation), or
 #                            (b) cross the fork-safety boundary (a fork
 #                                PR can never safely receive an OIDC
 #                                token tied to the upstream identity).
-#                          Cloud-backed plans run in `infra-apply.yml`,
-#                          which is `workflow_dispatch` + the
-#                          `infra-apply` GitHub Environment.
+#                          Cloud-backed plans run in `infra-apply.yml` under
+#                          `infra-plan`; the exact saved plan is then applied
+#                          under approval-gated `infra-apply`.
 #
 # Conventions:
 #   * Concurrency cancel-in-progress on PR head ref so a force-push
 #     immediately supersedes the older run.
 #   * `permissions:` is the *minimum* needed (read-only contents).
-#   * Pinning Actions by full SHA is the org-hardening recommendation;
-#     the baseline pins by major and lets Dependabot push updates.
+#   * Every action is pinned to a full SHA; Dependabot proposes reviewed
+#     SHA updates while the human-readable comment records the release.
 #
 # Branch protection contract:
 #   `docs/repo-settings-checklist.md` declares the required check
@@ -49,17 +47,18 @@ concurrency:
 
 jobs:
   app-lint-test:
-    name: app — lint + tests
+    name: app — lint + tests + audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: app
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -74,21 +73,26 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
   terraform-fmt-validate:
     name: terraform — fmt + validate (${{ matrix.module }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         module:
           - infra/bootstrap
           - infra/app
+          - examples/azure-container-apps/infra/app
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.9.8'
           terraform_wrapper: false
@@ -105,20 +109,32 @@ jobs:
         working-directory: ${{ matrix.module }}
         run: terraform validate -no-color
 
+      - name: terraform test
+        if: matrix.module == 'infra/app'
+        working-directory: infra/app
+        run: terraform test -no-color
+
   docker-build:
-    name: docker — build sample app image (smoke)
+    name: docker — lint + scan + health smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
+        with:
+          dockerfile: app/Dockerfile
+          failure-threshold: error
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       # Build only — no push. Confirms the multi-stage Dockerfile builds
       # cleanly on every PR. Push happens in azure-deploy.yml after merge.
       - name: Build app image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: app
           file: app/Dockerfile
@@ -127,3 +143,87 @@ jobs:
           tags: agentic-sdlc-sample-app:ci-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan image for fixed HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: agentic-sdlc-sample-app:ci-${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          version: v0.73.0
+
+      - name: Run /health smoke test
+        run: |
+          set -euo pipefail
+          container="sample-app-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker run --detach --rm --name "${container}" --publish 3000:3000 \
+            "agentic-sdlc-sample-app:ci-${GITHUB_SHA}"
+          trap 'docker rm --force "${container}" >/dev/null 2>&1 || true' EXIT
+
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if response="$(curl --fail --silent --show-error http://127.0.0.1:3000/health)"; then
+              printf '%s\n' "${response}" | jq -e '.status == "ok"' >/dev/null
+              echo "Container health check passed."
+              exit 0
+            fi
+            echo "Health check attempt ${attempt} failed; retrying in 2 seconds."
+            sleep 2
+          done
+
+          docker logs "${container}" >&2
+          echo "::error::Container /health endpoint did not become ready."
+          exit 1
+
+  repository-validation:
+    name: repository — harness + workflows + shell + JSON
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node 22 for harness
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tools/harness/package-lock.json
+
+      - name: Install harness dependencies
+        run: npm --prefix tools/harness ci
+
+      - name: Install actionlint 1.7.12
+        env:
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/actionlint.tar.gz"
+          curl --fail --location --silent --show-error \
+            --output "${archive}" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          printf '%s  %s\n' "${ACTIONLINT_SHA256}" "${archive}" | sha256sum --check -
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" actionlint
+          mkdir -p "${RUNNER_TEMP}/bin"
+          install -m 0755 "${RUNNER_TEMP}/actionlint" "${RUNNER_TEMP}/bin/actionlint"
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+
+      - name: Install ShellCheck 0.11.0
+        env:
+          SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/shellcheck.tar.gz"
+          curl --fail --location --silent --show-error \
+            --output "${archive}" \
+            https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz
+          printf '%s  %s\n' "${SHELLCHECK_SHA256}" "${archive}" | sha256sum --check -
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          mkdir -p "${RUNNER_TEMP}/bin"
+          install -m 0755 "${RUNNER_TEMP}/shellcheck-v0.11.0/shellcheck" "${RUNNER_TEMP}/bin/shellcheck"
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+
+      - name: Validate repository maintenance surfaces
+        run: ./scripts/validate-repository.sh

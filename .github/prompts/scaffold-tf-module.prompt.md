@@ -1,14 +1,19 @@
 <!-- HAND-AUTHORED — slash prompt for scaffolding a new Terraform child module. -->
 ---
-mode: agent
+agent: agent
 description: "Scaffold a new Terraform child module under infra/app/modules/"
+tools: ["read", "search", "edit", "execute"]
 ---
 
 # /scaffold-tf-module
 
 Scaffold a new Terraform child module under `infra/app/modules/<name>/`
 that follows this repo's conventions
-(`.github/instructions/infra-terraform.instructions.md`).
+([`../instructions/infra-terraform.instructions.md`](../instructions/infra-terraform.instructions.md)).
+
+This is a VS Code extension-host slash command. Agent Host and GitHub cloud
+agents do not load prompt files; use the repository instructions and a
+committed plan for portable work.
 
 ## Inputs
 

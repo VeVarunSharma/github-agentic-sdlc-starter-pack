@@ -12,9 +12,12 @@ gone stale.
 | Weekly | npm version-update PRs | Reviewer (human) | `.github/dependabot.yml` |
 | Weekly | GitHub Actions version-update PRs | Reviewer (human) | `.github/dependabot.yml` |
 | Weekly | CodeQL scheduled scan | (automated) | `.github/workflows/codeql.yml` cron |
+| Weekly | Documentation/harness validation | DevEx / platform team | `.github/workflows/documentation-gardening.yml` |
 | Quarterly | Refresh `docs/upstream-sources.md` "last verified" SHAs | DevEx / platform team | Manual |
 | Quarterly | Review `apm-policy.yml` allowlist for new orgs | DevEx / platform team | Manual |
 | Quarterly | Review hand-authored `.github/` primitives — still relevant? | Repo owner | Manual |
+| Monthly | Review enterprise managed-settings keys, client coverage, MCP allow/deny lists, plugins, and team mappings | Enterprise AI administrators | `examples/enterprise-governance/` dated inventory |
+| Monthly | Refresh pinned Node base digest and rerun fixed HIGH/CRITICAL Trivy policy | App + DevEx teams | Dependabot/base release or scanner finding |
 | Annually | Refresh `infra/bootstrap/` — Terraform, provider, AzureRM versions | DevEx / platform team | Manual |
 | Annually | Re-bootstrap OIDC federated credentials if rotated subjects (e.g. repo rename) | Repo owner | Manual or via `oidc-rotation` skill |
 | Annually | Review the `enterprise-hardening.md` overlay against current GHAS feature set | DevEx / platform team | Manual |
@@ -28,7 +31,10 @@ How each kind of drift surfaces:
 | APM-managed file edited by hand | `apm-audit.yml` PR check | Audit job fails with "drift in managed file" |
 | `apm.lock.yaml` out of sync with `apm.yml` | `apm-audit.yml` PR check | Audit job fails with "lockfile out of date" |
 | Hand-authored file added under `.github/` | `apm-audit.yml` PR check | Warning only ("unmanaged file"), tolerated by `unmanaged_files.action: warn` |
+| Agent map, catalog, link, schema, pin, plan, or ADR drift | `tools/harness` in CI and weekly gardening | Actionable deterministic failure |
+| Annotated enterprise policy differs from generated strict JSON or its dated inventory | `tools/harness` plus overlay validation | Generated-policy, comment-coverage, support-matrix, matcher, or schema failure |
 | Vulnerable npm dep introduced | `dependency-review.yml` PR check | Block on high/critical CVEs |
+| Fixed HIGH/CRITICAL container finding | `ci.yml` Trivy step | Docker required check fails; unfixed findings remain visible but non-blocking |
 | Vulnerable Action introduced | `dependency-review.yml` PR check | Same |
 | Terraform syntax broken | `ci.yml` `terraform-fmt-validate` matrix job | PR check fails |
 | Required check renamed without ruleset update | Branch protection rule evaluation | "Indefinite pending" — PR can't merge |
@@ -42,7 +48,9 @@ How each kind of drift surfaces:
 | `app/` | App team |
 | `infra/app/` | App team (via PR) + DevEx team (via `infra-apply.yml` approval) |
 | `infra/bootstrap/` | DevEx / platform team (one-time + rotations) |
-| `.github/copilot-instructions.md` and other hand-authored `.github/` files | Repo owner + reviewers |
+| `AGENTS.md`, `docs/README.md`, and hand-authored `.github/` files | Repo owner + reviewers |
+| `tools/harness/` | DevEx / platform team |
+| `examples/enterprise-governance/` | Enterprise AI administrators + security owners |
 | `apm.yml`, `apm-policy.yml`, `apm.lock.yaml` | DevEx / platform team |
 | `.github/workflows/` | DevEx / platform team |
 | `.github/rulesets/` | DevEx / platform team + repo owner (graduation) |
@@ -66,8 +74,8 @@ Repos following the baseline should expect:
 
 | Component | Bump signal |
 |-----------|-------------|
-| Node.js (sample app) | Each LTS cut (~April every 2 years). Update `app/package.json` `engines.node`, `Dockerfile` base image, devcontainer image. |
+| Node.js (sample app) | Each LTS cut or base security refresh. Update `app/package.json` `engines.node`, immutable Dockerfile digest, and devcontainer image. |
 | Terraform CLI | Each minor release; pin in `infra/*/versions.tf` |
 | AzureRM provider | Quarterly; coordinate with bootstrap apply |
-| APM CLI | When a breaking change is announced (Spike F flagged 0.12.3→0.12.4 as one); update `apm-policy.yml` `apm_cli_version` and `.github/workflows/apm-audit.yml` |
+| APM CLI | When a breaking change is announced; update `scripts/install-apm.sh` `APM_VERSION` and `.github/workflows/apm-audit.yml`. The `apm_cli_version` field does NOT exist in `apm-policy.yml`; pin the CLI via `install-apm.sh`. |
 | GHAS features | When GitHub announces new free-tier features applicable to the baseline — update [`repo-settings-checklist.md`](./repo-settings-checklist.md) |

@@ -24,9 +24,10 @@ jobs:
   verify:
     name: dco — verify sign-off
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout PR head with full history of the PR commits
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Need the PR head + all commits between base and head; fetch-depth 0
           # is heavy but avoids missing commits on long-running PRs.

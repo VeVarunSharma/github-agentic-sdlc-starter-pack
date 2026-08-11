@@ -23,10 +23,12 @@ blocking anyone.
 
 | Check name | Workflow file | Job |
 | --- | --- | --- |
-| `app — lint + tests` | `ci.yml` | `app-lint-test` |
+| `app — lint + tests + audit` | `ci.yml` | `app-lint-test` |
 | `terraform — fmt + validate (infra/bootstrap)` | `ci.yml` | `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (infra/app)` | `ci.yml` | `terraform-fmt-validate` (matrix) |
-| `docker — build sample app image (smoke)` | `ci.yml` | `docker-build` |
+| `terraform — fmt + validate (examples/azure-container-apps/infra/app)` | `ci.yml` | `terraform-fmt-validate` (matrix) |
+| `docker — lint + scan + health smoke` | `ci.yml` | `docker-build` |
+| `repository — harness + workflows + shell + JSON` | `ci.yml` | `repository-validation` |
 | `Analyze (javascript-typescript)` | `codeql.yml` | `analyze` |
 | `apm install + audit` | `apm-audit.yml` | `audit` |
 | `Review dependency changes` | `dependency-review.yml` | `dependency-review` |

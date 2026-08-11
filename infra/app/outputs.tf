@@ -38,3 +38,13 @@ output "resource_group_name" {
   value       = local.rg.name
   description = "App resource group name (echoed from input)."
 }
+
+output "staging_slot_name" {
+  value       = var.staging_slot_enabled ? azurerm_linux_web_app_slot.staging[0].name : ""
+  description = "Optional staging slot name, or an empty string when the low-cost direct deployment path is used."
+}
+
+output "staging_slot_hostname" {
+  value       = var.staging_slot_enabled ? azurerm_linux_web_app_slot.staging[0].default_hostname : ""
+  description = "Optional staging slot hostname, or an empty string when no slot is provisioned."
+}

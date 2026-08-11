@@ -9,7 +9,7 @@ specific versions.
 
 - [GitHub Copilot docs — Customizing Copilot](https://docs.github.com/copilot/customizing-copilot)
   — official guidance on `.github/copilot-instructions.md`,
-  `.github/instructions/`, `.github/prompts/`, `.github/chatmodes/`,
+  `AGENTS.md`, `.github/instructions/`, `.github/prompts/`,
   and the AGENTS.md convention.
 - [GitHub Copilot docs — Coding agent](https://docs.github.com/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks)
   — how the cloud agent picks up issues, reads context, and opens
@@ -26,7 +26,7 @@ specific versions.
 ## Awesome lists (curated upstream content)
 
 - [github/awesome-copilot](https://github.com/github/awesome-copilot)
-  — Copilot prompts, instructions, chatmodes, agents, skills. Source
+  — Copilot prompts, instructions, agents, and skills. Source
   for the 7 APM-installed deps in [`apm.yml`](../apm.yml).
 - [sdras/awesome-actions](https://github.com/sdras/awesome-actions) —
   GitHub Actions catalog. Use to find Actions we haven't already pinned

@@ -11,6 +11,14 @@ locals {
   law_name  = "log-${var.workload_name}-${var.environment}-${var.region_short}"
   plan_name = "asp-${var.workload_name}-${var.environment}-${var.region_short}"
 
+  app_settings = {
+    APPLICATIONINSIGHTS_CONNECTION_STRING           = azurerm_application_insights.this.connection_string
+    DOCKER_ENABLE_CI                                = "true"
+    WEBSITE_ADD_SITENAME_BINDINGS_IN_APPHOST_CONFIG = "1"
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE             = "false"
+    WEBSITES_PORT                                   = "3000"
+  }
+
   role_ids = {
     acr_pull            = "7f951dda-4ed3-4680-a7ca-43fe172d538d"
     acr_push            = "8311e382-0749-4cb8-b61a-304f252e45ec"
@@ -72,6 +80,18 @@ resource "azurerm_service_plan" "this" {
   os_type             = "Linux"
   sku_name            = var.app_service_plan_sku
   tags                = var.tags
+
+  lifecycle {
+    precondition {
+      condition = (
+        !var.staging_slot_enabled ||
+        can(regex("^S[1-9][0-9]*$", upper(var.app_service_plan_sku))) ||
+        startswith(upper(var.app_service_plan_sku), "P") ||
+        startswith(upper(var.app_service_plan_sku), "I")
+      )
+      error_message = "staging_slot_enabled requires a Standard (S1+), Premium, or Isolated App Service Plan; F1 and B1-B3 do not support deployment slots."
+    }
+  }
 }
 
 resource "azurerm_linux_web_app" "this" {
@@ -102,14 +122,7 @@ resource "azurerm_linux_web_app" "this" {
     }
   }
 
-  app_settings = {
-    WEBSITES_PORT                              = "3000"
-    APPLICATIONINSIGHTS_CONNECTION_STRING      = azurerm_application_insights.this.connection_string
-    ApplicationInsightsAgent_EXTENSION_VERSION = "~3"
-    XDT_MicrosoftApplicationInsights_NodeJS    = "1"
-    DOCKER_ENABLE_CI                           = "true"
-    WEBSITES_ENABLE_APP_SERVICE_STORAGE        = "false"
-  }
+  app_settings = local.app_settings
 
   logs {
     http_logs {
@@ -135,6 +148,58 @@ resource "azurerm_linux_web_app" "this" {
   }
 }
 
+# The staging slot is intentionally opt-in because deployment slots require
+# Standard, Premium, or Isolated App Service plans. Its system identity is a
+# distinct principal and therefore receives its own registry assignment.
+resource "azurerm_linux_web_app_slot" "staging" {
+  count = var.staging_slot_enabled ? 1 : 0
+
+  name           = var.staging_slot_name
+  app_service_id = azurerm_linux_web_app.this.id
+  https_only     = true
+  tags           = var.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    always_on           = true
+    health_check_path   = "/health"
+    ftps_state          = "Disabled"
+    http2_enabled       = true
+    minimum_tls_version = "1.2"
+
+    container_registry_use_managed_identity = true
+
+    application_stack {
+      docker_image_name   = var.container_image
+      docker_registry_url = "https://${azurerm_container_registry.this.login_server}"
+    }
+  }
+
+  app_settings = local.app_settings
+
+  logs {
+    http_logs {
+      file_system {
+        retention_in_days = 7
+        retention_in_mb   = 35
+      }
+    }
+    application_logs {
+      file_system_level = "Information"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      site_config[0].application_stack[0].docker_image_name,
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+    ]
+  }
+}
+
 # ---------------------------------------------------------------------------
 # RBAC — the constrained apply identity may create only these assignments.
 # Built-in role IDs:
@@ -143,6 +208,16 @@ resource "azurerm_linux_web_app" "this" {
 
 resource "azurerm_role_assignment" "webapp_acr_pull" {
   principal_id                     = azurerm_linux_web_app.this.identity[0].principal_id
+  principal_type                   = "ServicePrincipal"
+  role_definition_id               = local.role_definition_ids.acr_pull
+  scope                            = azurerm_container_registry.this.id
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "staging_slot_acr_pull" {
+  count = var.staging_slot_enabled ? 1 : 0
+
+  principal_id                     = azurerm_linux_web_app_slot.staging[0].identity[0].principal_id
   principal_type                   = "ServicePrincipal"
   role_definition_id               = local.role_definition_ids.acr_pull
   scope                            = azurerm_container_registry.this.id
@@ -180,6 +255,29 @@ resource "azurerm_role_assignment" "deploy_web_app" {
 resource "azurerm_monitor_diagnostic_setting" "webapp" {
   name                       = "to-log-analytics"
   target_resource_id         = azurerm_linux_web_app.this.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
+
+  enabled_log {
+    category = "AppServiceHTTPLogs"
+  }
+
+  enabled_log {
+    category = "AppServiceConsoleLogs"
+  }
+  enabled_log {
+    category = "AppServiceAppLogs"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "staging_slot" {
+  count = var.staging_slot_enabled ? 1 : 0
+
+  name                       = "to-log-analytics"
+  target_resource_id         = azurerm_linux_web_app_slot.staging[0].id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
 
   enabled_log {

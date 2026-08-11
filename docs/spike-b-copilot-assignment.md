@@ -4,6 +4,9 @@
 
 # Spike B — GitHub Copilot Coding Agent: GraphQL Assignment API
 
+> **Historical evidence (last cataloged 2026-08-09).** Re-verify all API
+> contracts before implementation.
+
 **Date:** 2025-06-13  
 **Status:** Research complete — no scratch repo tested; all contracts verified against
 official GitHub documentation, the `github/docs` source tree, `github/github-mcp-server`

@@ -13,5 +13,10 @@ deploy_principal_id = "00000000-0000-0000-0000-000000000000"
 # app_service_plan_sku = "P1v3"
 # log_retention_days   = 30
 
+# Optional safer promotion path. Deployment slots require S1 or higher;
+# leave disabled for the default low-cost B1 flow.
+# staging_slot_enabled = true
+# staging_slot_name    = "staging"
+
 # The deploy workflow updates the image after the initial provisioning apply.
 # container_image = "<acr>.azurecr.io/sample-app:<sha>"

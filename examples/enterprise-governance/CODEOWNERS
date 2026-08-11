@@ -1,0 +1,41 @@
+# CODEOWNERS — enterprise governance overlay
+#
+# Format: <pattern> <owner> [<owner> ...]
+# Patterns follow gitignore rules; last matching rule wins.
+# Replace {{ENTERPRISE_GOVERNANCE_TEAM}} with the real GitHub team slug
+# for your organization, e.g. @my-org/platform-governance.
+#
+# The governance team is declared as a template token so the renderer or a
+# setup operator can substitute it without introducing a dependency on a
+# real org slug in this example repository.
+
+# All files default to governance-team review
+*                                   @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Generated managed settings require an extra explicit declaration because
+# even auto-generated commits must be reviewed before merge.
+copilot/managed-settings.json       @{{ENTERPRISE_GOVERNANCE_TEAM}}
+copilot/managed-settings.source.jsonc @{{ENTERPRISE_GOVERNANCE_TEAM}}
+copilot/team-mappings.json          @{{ENTERPRISE_GOVERNANCE_TEAM}}
+copilot/team-mappings.source.jsonc  @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Agents require governance review to prevent unauthorized persona changes
+agents/                             @{{ENTERPRISE_GOVERNANCE_TEAM}}
+.github/agents/                     @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Plugin marketplace and plugin manifests are high-trust artifacts
+.github/plugin/marketplace.json     @{{ENTERPRISE_GOVERNANCE_TEAM}}
+plugins/                            @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Scripts mutate GitHub settings via the API; all changes require review
+scripts/                            @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Rulesets protect branches; changes require review
+.github/rulesets/                   @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Workflow changes could bypass other controls; require governance review
+.github/workflows/                  @{{ENTERPRISE_GOVERNANCE_TEAM}}
+
+# Documentation is owned by the governance team but secondary authors may
+# contribute; still require governance sign-off on docs merges.
+docs/                               @{{ENTERPRISE_GOVERNANCE_TEAM}}

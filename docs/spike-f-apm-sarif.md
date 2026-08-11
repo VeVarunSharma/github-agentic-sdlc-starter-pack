@@ -4,6 +4,9 @@
 
 # Spike F — APM SARIF Audit Integration
 
+> **Historical evidence (last cataloged 2026-08-09).** The active gate is
+> [`.github/workflows/apm-audit.yml`](../.github/workflows/apm-audit.yml).
+
 **Date:** 2025-01-31  
 **Status:** Research complete — ready for implementation  
 **Sources:** `microsoft/apm-action` README + `action.yml` (HEAD `b48dd081`, 2026-05-07);

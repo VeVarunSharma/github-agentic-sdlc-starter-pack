@@ -1,7 +1,8 @@
 # `infra/app` - CI-applied application infrastructure
 
 This module creates ACR, Log Analytics, Application Insights, an App Service
-Plan, and the Linux Web App. The manual `infra-apply.yml` workflow plans with
+Plan, the Linux Web App, and an optional S1+ staging slot. The manual
+`infra-apply.yml` workflow plans with
 the `infra-plan` identity and applies the exact saved binary plan with the
 `infra-apply` identity.
 
@@ -16,6 +17,8 @@ the `infra-plan` identity and applies the exact saved binary plan with the
 | `environment` | `AZURE_ENVIRONMENT` |
 | `region_short` | `AZURE_REGION_SHORT` |
 | `workload_name` | `AZURE_WORKLOAD_NAME` |
+| `staging_slot_enabled` | `AZURE_STAGING_SLOT_ENABLED` (optional, defaults `false`) |
+| `staging_slot_name` | `AZURE_STAGING_SLOT_NAME` (optional, defaults `staging`) |
 
 All values are created by `scripts/setup-azure-oidc.sh` before the first app
 apply, eliminating the former ACR/Web App variable deadlock.
@@ -36,6 +39,9 @@ This module grants the deploy UAMI:
 - no resource-group or bootstrap role.
 
 The Web App system identity receives `AcrPull` on the exact registry.
+When enabled, the staging slot receives a distinct system identity and its own
+exact-registry `AcrPull` assignment. This is required because slot identities
+are not swapped.
 Built-in IDs come from Microsoft's
 [Azure built-in roles](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles).
 
@@ -67,3 +73,21 @@ The setup script registers `Microsoft.Authorization`,
 `Microsoft.ManagedIdentity`, `Microsoft.OperationalInsights`,
 `Microsoft.Resources`, `Microsoft.Storage`, and `Microsoft.Web` before
 bootstrap.
+
+## Optional staging slot
+
+The default B1 plan uses the direct, health-verified rollback path and creates
+no slot. Slots require Standard, Premium, or Isolated:
+
+```hcl
+app_service_plan_sku = "S1"
+staging_slot_enabled = true
+staging_slot_name    = "staging"
+```
+
+Terraform rejects slot enablement on F1/B1-B3. The slot mirrors the production
+TLS, FTPS, HTTP/2, health, storage, telemetry, and managed-ACR settings. Its
+name and hostname are the only slot outputs, and both are non-sensitive.
+When disabled, those outputs are empty strings.
+`terraform test` exercises the default no-slot plan, an enabled S1 slot with a
+distinct identity/AcrPull assignment, and rejection of a B1 slot request.

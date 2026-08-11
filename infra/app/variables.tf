@@ -23,6 +23,11 @@ variable "app_service_plan_sku" {
   type        = string
   description = "App Service Plan SKU."
   default     = "B1"
+
+  validation {
+    condition     = can(regex("^[A-Za-z][A-Za-z0-9]+$", var.app_service_plan_sku))
+    error_message = "app_service_plan_sku must be a valid alphanumeric App Service SKU name."
+  }
 }
 
 variable "container_image" {
@@ -71,6 +76,23 @@ variable "region_short" {
   validation {
     condition     = can(regex("^[a-z][a-z0-9]{1,7}$", var.region_short))
     error_message = "region_short must be 2-8 lowercase alphanumeric characters and start with a letter."
+  }
+}
+
+variable "staging_slot_enabled" {
+  type        = bool
+  description = "Create an opt-in staging deployment slot. Requires a Standard, Premium, or Isolated App Service Plan."
+  default     = false
+}
+
+variable "staging_slot_name" {
+  type        = string
+  description = "Name of the optional staging deployment slot."
+  default     = "staging"
+
+  validation {
+    condition     = length(var.staging_slot_name) >= 2 && length(var.staging_slot_name) <= 59 && can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.staging_slot_name))
+    error_message = "staging_slot_name must be 2-59 lowercase alphanumeric or hyphen characters and cannot start or end with a hyphen."
   }
 }
 

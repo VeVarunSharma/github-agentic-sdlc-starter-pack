@@ -1,32 +1,49 @@
-const js = require('@eslint/js');
+import js from '@eslint/js';
 
 const nodeGlobals = {
   process: 'readonly',
-  console: 'readonly',
-  require: 'readonly',
-  module: 'readonly',
-  __dirname: 'readonly',
-  __filename: 'readonly',
-  exports: 'writable',
   Buffer: 'readonly',
-  global: 'readonly',
+  URL: 'readonly',
   setTimeout: 'readonly',
-  setInterval: 'readonly',
   clearTimeout: 'readonly',
-  clearInterval: 'readonly',
   fetch: 'readonly',
 };
 
-module.exports = [
+const browserGlobals = {
+  document: 'readonly',
+  fetch: 'readonly',
+  Number: 'readonly',
+  navigator: 'readonly',
+  setTimeout: 'readonly',
+  window: 'readonly',
+};
+
+export default [
   {
     ignores: ['node_modules/**', 'coverage/**'],
   },
   js.configs.recommended,
   {
+    files: ['src/**/*.js'],
     languageOptions: {
-      ecmaVersion: 2024,
-      sourceType: 'commonjs',
+      ecmaVersion: 'latest',
+      sourceType: 'module',
       globals: nodeGlobals,
+    },
+    rules: {
+      'no-console': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: browserGlobals,
+    },
+    rules: {
+      'no-console': 'error',
     },
   },
 ];

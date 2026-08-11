@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Use a fresh clone so the PR diff is meaningful.
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
 
       - name: Open / refresh PR
         if: steps.changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/apm-refresh-lockfile
           base: main

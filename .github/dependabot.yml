@@ -27,10 +27,8 @@ version: 2
 updates:
 
   # -----------------------------------------------------------------------
-  # NOTE: there is no root-level npm package today. If you add a root
-  # package.json (e.g. for repo-wide tooling like husky / lint-staged),
-  # copy the `app/` npm block below and change `directory: "/app"` to
-  # `directory: "/"`. Keep the same group / label / reviewer settings.
+  # NOTE: there is no root-level npm package. App and harness packages are
+  # tracked independently.
   # -----------------------------------------------------------------------
 
   # ---- npm: application code in app/ -----------------------------------
@@ -58,6 +56,22 @@ updates:
         applies-to: version-updates
         update-types:
           - "major"
+
+  # ---- npm: deterministic agent harness --------------------------------
+  - package-ecosystem: "npm"
+    directory: "/tools/harness"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+    reviewers:
+      - "<owner>/<team>"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
 
   # ---- GitHub Actions (workflow files under .github/workflows) ----------
   # The `github-actions` ecosystem implicitly scans .github/workflows when

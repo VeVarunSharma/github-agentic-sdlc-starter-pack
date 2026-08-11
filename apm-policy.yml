@@ -75,8 +75,8 @@ mcp:
 # survive `apm install` and CI audit. Setting `action: warn` makes
 # `apm audit --ci` PASS the unmanaged-files check while still surfacing
 # the file list as a warning, so reviewers can spot accidentally
-# committed files. The hand-authored chatmode/prompt/skill/MCP
-# primitives are NOT in the monitored directory set, so they are not
+# committed files. Hand-authored prompt/skill/MCP
+# primitives outside the monitored directory set are not
 # flagged at all.
 #
 # Promote to `deny` only if you switch this repo to a fully

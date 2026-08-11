@@ -1,0 +1,70 @@
+name: Governance change
+description: Propose a change to enterprise Copilot managed settings, team policies, agents, or plugins
+title: "[Governance] "
+labels: ["governance"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Changes to this repository affect enterprise-wide Copilot policy. Review
+        [AGENTS.md](../../AGENTS.md) and the [rollout runbook](../../docs/runbooks/rollout.md)
+        before submitting.
+
+  - type: textarea
+    id: change-description
+    attributes:
+      label: Change description
+      description: What setting, agent, plugin, or document is changing, and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-settings
+    attributes:
+      label: Affected settings / files
+      description: List the exact files and settings that will change (e.g. sandbox.allowDevToolAccess in managed-settings.source.jsonc)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: floor-key-impact
+    attributes:
+      label: Does this change affect a floor key?
+      description: Floor keys (sandbox.enabled, allowBypass, captureContent, lockCaptureContent, and the exact strict marketplace sources) cannot be weakened.
+      options:
+        - "No — does not touch floor keys"
+        - "Yes — but strengthens a floor key (allowed)"
+        - "Yes — weakens a floor key (requires separate governance exception)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollout-plan
+    attributes:
+      label: Rollout plan
+      description: How will this be staged? What validation will confirm success?
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback-plan
+    attributes:
+      label: Rollback plan
+      description: How will this be reverted if it causes issues?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have run `node scripts/validate-governance.mjs` locally
+          required: true
+        - label: I have run `node scripts/render-managed-settings.mjs --check` locally
+          required: true
+        - label: I have not weakened any floor key
+          required: true
+        - label: I have not included secrets or real endpoint tokens
+          required: true

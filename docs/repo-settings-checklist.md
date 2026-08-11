@@ -76,7 +76,7 @@ Required-check names (must match exactly, case-sensitive):
 | `terraform — fmt + validate (infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (examples/azure-container-apps/infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `docker — lint + scan + health smoke` | `ci.yml` → `docker-build` |
-| `repository — workflows + shell + JSON + lockfiles` | `ci.yml` → `repository-validation` |
+| `repository — harness + workflows + shell + JSON` | `ci.yml` → `repository-validation` |
 | `Analyze (javascript-typescript)` | `codeql.yml` → `analyze` (matrix) |
 | `apm install + audit` | `apm-audit.yml` → `audit` |
 | `Review dependency changes` | `dependency-review.yml` → `dependency-review` |

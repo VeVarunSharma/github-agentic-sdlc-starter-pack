@@ -1,5 +1,8 @@
 # Spike E — `copilot-setup-steps.yml`: Discovery, Constraints, and Working Example
 
+> **Historical evidence (last cataloged 2026-08-09).** Re-verify hosted-agent
+> behavior against current GitHub documentation before changing the workflow.
+
 **Spike:** E  
 **Status:** Complete  
 **Date:** 2025-07-14  

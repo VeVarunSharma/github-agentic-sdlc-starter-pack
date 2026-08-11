@@ -1,0 +1,124 @@
+{
+  "allowedMcpServers": {
+    "overridable": [
+      {
+        "serverUrl": "https://learn.microsoft.com/api/mcp"
+      },
+      {
+        "serverUrl": "https://mcp.example.internal/standards"
+      },
+      {
+        "serverCommand": [
+          "npx",
+          "-y",
+          "@azure/mcp@3.0.0-beta.33",
+          "server",
+          "start"
+        ]
+      }
+    ]
+  },
+  "deniedMcpServers": [
+    {
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@azure/mcp@latest",
+        "server",
+        "start"
+      ]
+    }
+  ],
+  "enabledPlugins": {
+    "agentic-sdlc-standards@enterprise-standards": true
+  },
+  "extraKnownMarketplaces": {
+    "awesome-copilot": {
+      "source": {
+        "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2",
+        "repo": "github/awesome-copilot",
+        "source": "github"
+      }
+    },
+    "copilot-plugins": {
+      "source": {
+        "ref": "04d7d960289e78f8d98509bdacc368e85069170d",
+        "repo": "github/copilot-plugins",
+        "source": "github"
+      }
+    },
+    "enterprise-standards": {
+      "source": {
+        "ref": "1111111111111111111111111111111111111111",
+        "repo": "example-org/.github-private",
+        "source": "github"
+      }
+    }
+  },
+  "permissions": {
+    "disableBypassPermissionsMode": "disable",
+    "model": {
+      "overridable": "auto"
+    }
+  },
+  "remoteControl": {
+    "githubDotComOrganizations": [
+      "example-org"
+    ],
+    "mode": "requireSSO"
+  },
+  "sandbox": {
+    "addCurrentWorkingDirectory": true,
+    "allowBypass": false,
+    "allowDevToolAccess": true,
+    "enabled": true,
+    "ghAuth": true,
+    "gitAuth": true,
+    "sandboxLspServers": true,
+    "sandboxMcpServers": true,
+    "userPolicy": {
+      "filesystem": {
+        "deniedPaths": [],
+        "readonlyPaths": [],
+        "readwritePaths": []
+      },
+      "network": {
+        "allowLocalNetwork": false,
+        "allowOutbound": true
+      },
+      "seatbelt": {
+        "keychainAccess": false
+      }
+    }
+  },
+  "strictKnownMarketplaces": [
+    {
+      "ref": "1111111111111111111111111111111111111111",
+      "repo": "example-org/.github-private",
+      "source": "github"
+    },
+    {
+      "ref": "04d7d960289e78f8d98509bdacc368e85069170d",
+      "repo": "github/copilot-plugins",
+      "source": "github"
+    },
+    {
+      "ref": "ab7544d03d4c49fdd07f5958e1888ad39c4118e2",
+      "repo": "github/awesome-copilot",
+      "source": "github"
+    }
+  ],
+  "telemetry": {
+    "captureContent": false,
+    "enabled": false,
+    "endpoint": "https://otel.example.internal/v1/traces",
+    "headers": {},
+    "lockCaptureContent": true,
+    "protocol": "http/protobuf",
+    "resourceAttributes": {
+      "environment": "production",
+      "organization": "example-org"
+    },
+    "serviceName": "github-copilot-example-org"
+  }
+}

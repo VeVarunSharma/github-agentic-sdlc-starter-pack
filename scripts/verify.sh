@@ -3,6 +3,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Local smoke test. Runs every read-only check that CI runs:
 #   - app:    npm ci, lint, test, production dependency audit
+#   - harness: clean install, fixtures, and full repository contract validation
 #   - infra:  Terraform fmt -check + validate (all three owned roots)
 #   - repo:   workflows, shell, JSON, action pins, and Terraform lockfiles
 #   - docker: build + running /health smoke test
@@ -88,6 +89,21 @@ elif need npm; then
   fi
 fi
 
+# ── Agent harness: deterministic fixtures + repository contract ───────────────
+echo ""
+info "${BOLD}Agent harness${RESET} (${REPO_ROOT}/tools/harness)"
+if [[ ! -f tools/harness/package.json ]]; then
+  ERRORS=$((ERRORS + 1)); warn "tools/harness/package.json not found"
+elif need npm; then
+  if npm --prefix tools/harness ci &&
+     npm --prefix tools/harness test &&
+     npm --prefix tools/harness run validate; then
+    ok "Agent harness tests and validation pass"
+  else
+    ERRORS=$((ERRORS + 1)); warn "Agent harness validation failed"
+  fi
+fi
+
 # ── Infra: terraform fmt + validate ──────────────────────────────────────────
 for tf_dir in infra/bootstrap infra/app examples/azure-container-apps/infra/app; do
   echo ""
@@ -152,14 +168,14 @@ info "${BOLD}Docker${RESET} (build + /health)"
 if command -v docker >/dev/null 2>&1; then
   image="agentic-sdlc-sample-app:local-verify"
   container="agentic-sdlc-verify-$$"
-  docker_build_args=()
+  docker_build_command=(docker build)
   if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
-    docker_build_args+=(--build-arg "NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}")
+    docker_build_command+=(--build-arg "NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}")
   fi
   if [[ -n "${NPM_CONFIG_REPLACE_REGISTRY_HOST:-}" ]]; then
-    docker_build_args+=(--build-arg "NPM_CONFIG_REPLACE_REGISTRY_HOST=${NPM_CONFIG_REPLACE_REGISTRY_HOST}")
+    docker_build_command+=(--build-arg "NPM_CONFIG_REPLACE_REGISTRY_HOST=${NPM_CONFIG_REPLACE_REGISTRY_HOST}")
   fi
-  if docker build "${docker_build_args[@]}" --quiet --tag "${image}" app >/dev/null &&
+  if "${docker_build_command[@]}" --quiet --tag "${image}" app >/dev/null &&
      docker run --detach --rm --name "${container}" --publish 127.0.0.1::3000 "${image}" >/dev/null; then
     port="$(docker port "${container}" 3000/tcp | awk -F: 'NR == 1 { print $NF }')"
     healthy=false

@@ -51,7 +51,7 @@ Either way the agent reads:
 - `.github/copilot-instructions.md` (always)
 - `.github/instructions/*.instructions.md` whose `applyTo:` glob
   matches the files it edits
-- Any chatmode the user invoked (`.github/chatmodes/*.chatmode.md`)
+- Any manually selected custom agent (`.github/agents/*.agent.md`)
 - Any skill it explicitly opens (e.g. `.github/skills/oidc-rotation/`)
 - The MCP servers configured in `.vscode/mcp.json` (editor) or
   `.github/mcp/mcp.json` (cloud agent)

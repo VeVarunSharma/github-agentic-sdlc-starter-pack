@@ -5,22 +5,21 @@
 > commands, and you have a working agent context layer + CI/CD gates +
 > secure Azure deploy reference, all on GitHub.
 
-This repo is **`.github/`-first**: hand-authored
-[`.github/copilot-instructions.md`](./.github/copilot-instructions.md) is
-the primary entry point, and `.github/{instructions, prompts, chatmodes,
-agents, skills, hooks, mcp}/` ship worked examples of every Copilot agent
-primitive you'll want to extend. APM is layered on top as the optional
-"and here's how you scale this" pattern.
+This repo is **map-first**: root [`AGENTS.md`](./AGENTS.md) is the concise
+canonical entry point, [`docs/README.md`](./docs/README.md) catalogs deeper
+versioned knowledge, and `.github/{instructions,prompts,agents,skills,hooks,mcp}/`
+contains honest client-specific examples. APM adds a small, narrow,
+reviewed dependency layer.
 
 ---
 
 ## What you get
 
-- 🤖 **Hand-authored Copilot primitives** under `.github/` — at least one
-  worked example per type (instructions, prompts, chatmodes, agents,
-  skills, hooks, MCP), readable without installing anything.
+- 🤖 **Hand-authored agent primitives** under `.github/` — instructions,
+  VS Code prompts, portable agents/skills, lifecycle hooks, and reviewed MCP
+  references, readable without installing anything.
 - 📦 **Optional APM layer** ([microsoft/apm](https://github.com/microsoft/apm))
-  pulling 7 curated dependencies from
+  pulling 5 curated dependencies from
   [github/awesome-copilot](https://github.com/github/awesome-copilot)
   alongside the hand-authored examples.
 - ☁️ **Terraform infra for Azure App Service** with separate plan, apply,
@@ -32,6 +31,10 @@ primitive you'll want to extend. APM is layered on top as the optional
   Dependency Review, APM audit, and Terraform validate.
 - 🔁 **Closed-loop SDLC** — spec issue → Copilot agent → draft PR →
   gates → human review → squash-merge → OIDC deploy.
+- 🏢 **Enterprise Copilot governance overlay** — a copy-ready
+  [`.github-private` source](./examples/enterprise-governance/) with annotated
+  managed settings, team specializations, enterprise plugins/agents, guarded
+  bootstrap automation, and drift validation.
 - 🖥️ **Live control-plane showcase** — a responsive, accessible UI backed by
   real `/health` and `/api/info` state, governed by root `DESIGN.md`.
 - 📦 **Immutable container delivery** — pinned base image, Hadolint + Trivy,
@@ -49,8 +52,9 @@ cd <repo>
 # 2. One-time: provision scoped Azure plan/apply/deploy trust (no secrets)
 ./scripts/setup-azure-oidc.sh
 
-# 3. Smoke-test everything (lint + tests + terraform validate + apm audit)
-./scripts/verify.sh
+# 3. Diagnose the environment, then run every strict gate
+./scripts/doctor.sh
+./scripts/verify.sh --strict
 ```
 
 > `apm install` is **optional**. The hand-authored `.github/` primitives
@@ -64,11 +68,12 @@ cd <repo>
 
 | Path | What it is |
 | --- | --- |
-| [`.github/copilot-instructions.md`](./.github/copilot-instructions.md) | Primary agent context — read first |
+| [`AGENTS.md`](./AGENTS.md) | Canonical agent map — read first |
+| [`docs/README.md`](./docs/README.md) | System-of-record documentation catalog |
+| [`.github/copilot-instructions.md`](./.github/copilot-instructions.md) | Short GitHub-compatible bridge to `AGENTS.md` |
 | [`.github/instructions/`](./.github/instructions/) | Path-scoped guidance (hand-authored + APM coexist) |
-| [`.github/prompts/`](./.github/prompts/) | Slash-prompt definitions |
-| [`.github/chatmodes/`](./.github/chatmodes/) | Custom Copilot Chat modes |
-| [`.github/agents/`](./.github/agents/) | Sub-agent definitions |
+| [`.github/prompts/`](./.github/prompts/) | VS Code extension-host slash commands |
+| [`.github/agents/`](./.github/agents/) | Portable custom agent definitions |
 | [`.github/skills/`](./.github/skills/) | Multi-step skill playbooks |
 | [`.github/hooks/`](./.github/hooks/) | Lifecycle hooks |
 | [`.github/mcp/`](./.github/mcp/) | MCP server reference for the cloud agent |
@@ -78,9 +83,10 @@ cd <repo>
 | [`DESIGN.md`](./DESIGN.md) | Enforceable visual system for `app/public/**` |
 | [`infra/bootstrap/`](./infra/bootstrap/) | One-time Terraform — scoped OIDC identities + hardened tfstate |
 | [`infra/app/`](./infra/app/) | CI-applied Terraform — ACR, App Service, Log Analytics |
-| [`examples/`](./examples/) | Variants — Container Apps, Static Web Apps, OSS-hardening |
+| [`examples/`](./examples/) | Variants — enterprise Copilot governance, Container Apps, Static Web Apps, OSS hardening |
 | [`docs/`](./docs/) | Architecture, adoption, ownership, security, OIDC, governance |
 | [`scripts/`](./scripts/) | `bootstrap.sh`, `setup-azure-oidc.sh`, `verify.sh`, `template-cleanup.sh` |
+| [`tools/harness/`](./tools/harness/) | Deterministic docs and agent-surface checks |
 
 A guided walkthrough of every `.github/` primitive lives in
 [`docs/dotgithub-tour.md`](./docs/dotgithub-tour.md).
@@ -92,8 +98,8 @@ A guided walkthrough of every `.github/` primitive lives in
 1. **Spec issue** opened from
    [`.github/ISSUE_TEMPLATE/spec.yml`](./.github/ISSUE_TEMPLATE/spec.yml)
    (intent, acceptance criteria, non-goals, context).
-2. **Copilot coding agent** assigned. Reads `.github/copilot-instructions.md`,
-   matching `.github/instructions/*`, any referenced skills; opens a draft
+2. **Copilot coding agent** assigned. Starts at `AGENTS.md`, follows its
+   task routing, loads matching `.github/instructions/*` and skills; opens a draft
    PR on `agent/<issue>-<desc>`.
 3. **Gates run** on the PR — `ci`, `codeql`, `dependency-review`,
    `apm-audit`, Terraform `fmt` + `validate`.
@@ -126,6 +132,13 @@ Full diagram + gate-by-gate breakdown:
 6. Once every required check has appeared on at least one PR, graduate to
    the enforce-mode ruleset.
 
+Enterprise administrators can separately copy
+[`examples/enterprise-governance/`](./examples/enterprise-governance/) to the
+root of a selected organization `.github-private` repository. This starter
+cannot enforce those settings from an application repository; GitHub begins
+server-managed enforcement only after an administrator creates, protects, and
+selects that governance source.
+
 Step-by-step walkthrough:
 [`docs/adoption-playbook.md`](./docs/adoption-playbook.md).
 One-time GitHub repo settings:
@@ -138,6 +151,7 @@ One-time GitHub repo settings:
 - **[`docs/architecture.md`](./docs/architecture.md)** — components, data flow
 - **[`docs/azure-oidc-setup.md`](./docs/azure-oidc-setup.md)** — federated credential setup + rotation
 - **[`docs/governance.md`](./docs/governance.md)** — `apm-policy.yml` enforcement
+- **[`examples/enterprise-governance/README.md`](./examples/enterprise-governance/README.md)** — centralized Copilot governance adoption
 - **[`docs/enterprise-hardening.md`](./docs/enterprise-hardening.md)** — additional controls for regulated deployments
 - **[`docs/resources.md`](./docs/resources.md)** — curated link catalogue
 - **[`AGENTS.md`](./AGENTS.md)** · **[`CONTRIBUTING.md`](./CONTRIBUTING.md)** · **[`SECURITY.md`](./SECURITY.md)** · **[`SUPPORT.md`](./SUPPORT.md)**

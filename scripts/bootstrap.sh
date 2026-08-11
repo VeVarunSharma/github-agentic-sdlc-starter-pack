@@ -33,7 +33,7 @@ usage() {
   cat <<EOF
 ${BOLD}bootstrap.sh${RESET} — set up local working copy
 
-Installs the optional APM dependency layer and the sample app's npm
+Installs the optional APM dependency layer plus app and harness npm
 dependencies, then runs the smoke test.
 
 Usage: $0 [OPTIONS]
@@ -86,6 +86,17 @@ else
   info "Running 'npm ci' in app/"
   npm --prefix app ci
   ok "App dependencies installed"
+fi
+
+# ── Harness dependencies ──────────────────────────────────────────────────────
+if ! command -v npm >/dev/null 2>&1; then
+  warn "npm not found — skipping harness install"
+elif [[ ! -f tools/harness/package.json ]]; then
+  fail "tools/harness/package.json not found"
+else
+  info "Running 'npm ci' in tools/harness/"
+  npm --prefix tools/harness ci
+  ok "Harness dependencies installed"
 fi
 
 # ── Smoke test ───────────────────────────────────────────────────────────────

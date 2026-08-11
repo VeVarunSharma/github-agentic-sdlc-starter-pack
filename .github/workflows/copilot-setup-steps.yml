@@ -21,8 +21,8 @@
 #      when iterating on `infra/`).
 #   3. Install the APM CLI at the pinned version so Copilot can read
 #      `apm.yml`, run `apm install`, and `apm audit`.
-#   4. Pre-warm `app/node_modules` so the agent doesn't burn its
-#      first minute on `npm ci`.
+#   4. Pre-warm app and harness dependencies so the agent can validate
+#      changes immediately.
 #
 # Tip: this file does NOT need to be triggered by a normal `on:`
 # event — Copilot reads it directly. The `workflow_dispatch` entry
@@ -51,7 +51,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: |
+            app/package-lock.json
+            tools/harness/package-lock.json
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -68,9 +70,14 @@ jobs:
         working-directory: app
         run: npm ci --prefer-offline --no-audit --no-fund
 
+      - name: Pre-warm agent harness dependencies
+        working-directory: tools/harness
+        run: npm ci --prefer-offline --no-audit --no-fund
+
       - name: Verify toolchain
         run: |
           node --version
           npm --version
           terraform version
           apm --version
+          npm --prefix tools/harness run validate

@@ -1,0 +1,9 @@
+{
+  "sessionId": "fixture",
+  "timestamp": 0,
+  "cwd": "/workspace",
+  "toolName": "read",
+  "toolArgs": {
+    "path": "app/src/app.js"
+  }
+}

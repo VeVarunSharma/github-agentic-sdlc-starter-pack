@@ -38,14 +38,14 @@ ruleset, or you'll lock yourself out of merging.
 
 ## 3 — Environments
 
-`Settings → Environments` — create two environments. Both reference
-the same Azure subscription but use **different federated credential
-subjects** so an app deploy can never mutate infra and vice versa.
+`Settings → Environments` — the setup script creates three environments.
+Each maps to a different managed identity and Azure permission boundary.
 
 | Environment | Subject | Approvers | Purpose |
 |-------------|---------|-----------|---------|
-| `production` | `repo:<owner>/<repo>:environment:production` | Auto (push to main) | App image deploy via `azure-deploy.yml` |
-| `infra-apply` | `repo:<owner>/<repo>:environment:infra-apply` | **Required reviewers** | Terraform apply via `infra-apply.yml` |
+| `infra-plan` | Immutable exact repository subject + `environment:infra-plan` | None | Read-only resource discovery plus state lease/write access needed by Terraform |
+| `infra-apply` | Immutable exact repository subject + `environment:infra-apply` | **Required reviewers** | Apply the independently checksummed saved plan |
+| `production` | Immutable exact repository subject + `environment:production` | Organization policy | Build/push and update the exact Web App |
 
 The federated credentials themselves are created by
 `./scripts/setup-azure-oidc.sh`. See
@@ -75,8 +75,8 @@ Required-check names (must match exactly, case-sensitive):
 | `terraform — fmt + validate (infra/bootstrap)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
 | `terraform — fmt + validate (examples/azure-container-apps/infra/app)` | `ci.yml` → `terraform-fmt-validate` (matrix) |
-| `docker — build + health smoke` | `ci.yml` → `docker-build` |
-| `repository — workflows + shell + JSON + lockfiles` | `ci.yml` → `repository-validation` |
+| `docker — lint + scan + health smoke` | `ci.yml` → `docker-build` |
+| `repository — harness + workflows + shell + JSON` | `ci.yml` → `repository-validation` |
 | `Analyze (javascript-typescript)` | `codeql.yml` → `analyze` (matrix) |
 | `apm install + audit` | `apm-audit.yml` → `audit` |
 | `Review dependency changes` | `dependency-review.yml` → `dependency-review` |
@@ -103,18 +103,33 @@ and confirming the right reviewers are auto-requested.
 
 | Variable | Set by | Notes |
 |----------|--------|-------|
-| `AZURE_CLIENT_ID` | setup script | UAMI client ID |
+| `AZURE_PLAN_CLIENT_ID` | setup script | Plan UAMI client ID |
+| `AZURE_APPLY_CLIENT_ID` | setup script | Apply UAMI client ID |
+| `AZURE_DEPLOY_CLIENT_ID` | setup script | Deploy UAMI client ID |
+| `AZURE_DEPLOY_PRINCIPAL_ID` | setup script | Deploy UAMI object ID used by `infra/app` role assignments |
 | `AZURE_TENANT_ID` | setup script | |
 | `AZURE_SUBSCRIPTION_ID` | setup script | |
 | `AZURE_RESOURCE_GROUP` | setup script | App resource group name |
 | `AZURE_TFSTATE_RG` | setup script | tfstate Storage RG |
 | `AZURE_TFSTATE_STORAGE_ACCOUNT` | setup script | tfstate Storage Account |
 | `AZURE_TFSTATE_CONTAINER` | setup script | tfstate blob container |
-| `AZURE_ACR_NAME` | **manual after first `infra-apply` run** | Set after `infra-apply.yml` outputs the ACR name |
-| `AZURE_WEBAPP_NAME` | **manual after first `infra-apply` run** | Same |
+| `AZURE_ACR_NAME` | setup script | Precomputed before the first app apply |
+| `AZURE_WEBAPP_NAME` | setup script | Precomputed before the first app apply |
+| `AZURE_LOCATION` | setup script | Full Azure region name |
+| `AZURE_REGION_SHORT` | setup script | CAF region segment |
+| `AZURE_ENVIRONMENT` | setup script | `dev`, `test`, `staging`, or `prod` |
+| `AZURE_WORKLOAD_NAME` | setup script | Lowercase naming segment |
+| `AZURE_OIDC_SUBJECT_MODE` | setup script | `immutable` by default; explicit `legacy` compatibility mode |
+| `AZURE_STAGING_SLOT_ENABLED` | operator (optional) | Set `true` only after applying `infra/app` with an S1+ plan; default is direct B1 deployment |
+| `AZURE_STAGING_SLOT_NAME` | operator (optional) | Slot name, normally `staging`; required when slot deployment is enabled |
 
-Variables (not secrets) is intentional — these IDs aren't credentials.
-The federated credential is the security boundary. See
+Variables (not secrets) is intentional — these IDs are not credentials.
+Exact environment trust plus the corresponding identity's scoped Azure roles
+form the security boundary. See
+[`azure-oidc-setup.md`](./azure-oidc-setup.md).
+
+The optional slot variables are deliberately not created by the baseline setup
+script because B1 does not support deployment slots. See the slot runbook in
 [`azure-oidc-setup.md`](./azure-oidc-setup.md).
 
 ## 7 — Optional: Copilot auto-assign

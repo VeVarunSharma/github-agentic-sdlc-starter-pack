@@ -8,7 +8,6 @@
     "hashicorp.terraform",
     "ms-azuretools.vscode-docker",
     "ms-azuretools.vscode-azureappservice",
-    "ms-azuretools.vscode-azure-mcp-server",
     "dbaeumer.vscode-eslint",
     "editorconfig.editorconfig",
     "redhat.vscode-yaml"

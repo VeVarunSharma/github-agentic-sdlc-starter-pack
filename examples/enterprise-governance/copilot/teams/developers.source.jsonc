@@ -1,0 +1,25 @@
+// copilot/teams/developers.source.jsonc
+//
+// TEAM SETTINGS: Standard Developers
+//   Team slug: {{STANDARD_DEVELOPERS_TEAM}}
+//   Applies to: all members of the standard developer team.
+//
+// POLICY INTENT
+//   Receive the enterprise baseline with no additional privileges.
+//   Explicitly documented to create an auditable policy record.
+//   Containsonly the overridable subset of keys (model only).
+//
+// ALLOWED KEYS IN TEAM FILES
+//   permissions.model, allowedMcpServers, deniedMcpServers,
+//   enabledPlugins (additive), extraKnownMarketplaces (additive).
+//   All other keys are non-overridable and MUST NOT appear here.
+//
+{
+  // model: "auto" — GitHub selects the best model per task. Team files use
+  // this top-level key after `permissions.model` is marked overridable.
+  "model": "auto"
+  // No allowedMcpServers override — inherits enterprise list.
+  // No enabledPlugins override — inherits enterprise baseline plugins.
+  // Telemetry, remoteControl, sandbox, strictKnownMarketplaces:
+  //   NOT present — non-overridable; enterprise settings apply.
+}

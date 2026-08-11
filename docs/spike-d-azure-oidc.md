@@ -1,4 +1,6 @@
-> **Status:** Research complete — ready for Phase 5 implementation  
+> **Status:** Historical research snapshot. Current implementation details,
+> including immutable GitHub subjects and split identities, live in
+> [`azure-oidc-setup.md`](./azure-oidc-setup.md).
 > **Date:** 2025-07-07  
 > **Author:** Spike D research agent  
 > **Sources:** Microsoft Learn, Azure/login GitHub Action README, Terraform azurerm provider source docs (hashicorp/terraform-provider-azurerm `main` branch, SHA `40e28f0` / `6f55192`)

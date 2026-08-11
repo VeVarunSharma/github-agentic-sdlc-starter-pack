@@ -11,28 +11,41 @@ see [`apm-ownership-model.md`](./apm-ownership-model.md).
 flowchart LR
   subgraph GitHub["GitHub"]
     direction TB
+    Governance[Selected .github-private governance source]
     Repo[Repo: code + .github/* + infra/]
     Actions[Actions: ci, codeql, apm-audit, infra-apply, azure-deploy]
     GHAS[GHAS: CodeQL · Dependabot · Dep Review · Secret Scanning]
     Copilot[Copilot coding agent + Chat]
+    Governance -.server-managed policy.-> Copilot
     Repo --> Actions
     Repo --> GHAS
     Copilot -.reads.-> Repo
   end
   subgraph Azure["Azure"]
     direction TB
-    UAMI[(Deploy UAMI)]
+    PlanID[(Plan UAMI)]
+    ApplyID[(Apply UAMI)]
+    DeployID[(Deploy UAMI)]
+    State[(Hardened tfstate)]
     ACR[(Container Registry)]
     App[(Linux Web App)]
+    Slot[(Optional staging slot)]
     LAW[(Log Analytics)]
     AppI[(Application Insights)]
-    UAMI --> ACR
-    UAMI --> App
+    PlanID --> State
+    ApplyID --> State
+    ApplyID --> ACR
+    ApplyID --> App
+    DeployID --> ACR
+    DeployID --> App
     App --> ACR
+    Slot --> ACR
     App --> AppI
     AppI --> LAW
   end
-  Actions -- OIDC token --> UAMI
+  Actions -- infra-plan OIDC --> PlanID
+  Actions -- infra-apply OIDC --> ApplyID
+  Actions -- production OIDC --> DeployID
   Actions -- docker push --> ACR
   Actions -- az webapp config container set --> App
 ```
@@ -41,11 +54,13 @@ flowchart LR
 
 | Component | Where it lives | Owns |
 |-----------|----------------|------|
-| **Sample app** | [`app/`](../app) | Express HTTP API on Node.js 22 + Dockerfile |
-| **App infra** | [`infra/app/`](../infra/app) | ACR, App Service Plan, Linux Web App, Log Analytics, Application Insights |
-| **Bootstrap infra** | [`infra/bootstrap/`](../infra/bootstrap) | UAMI, federated credentials, app RG, tfstate backend |
-| **Agent context** | [`.github/`](../.github) | Hand-authored Copilot primitives (instructions, prompts, chatmodes, agents, skills, hooks, MCP) |
+| **Sample app** | [`app/`](../app) | Node.js 22 ESM + Express 5 app, live APIs, control-plane UI, Azure Monitor preload, Dockerfile |
+| **App infra** | [`infra/app/`](../infra/app) | ACR, App Service Plan, Linux Web App, optional S1+ staging slot, Log Analytics, Application Insights |
+| **Bootstrap infra** | [`infra/bootstrap/`](../infra/bootstrap) | Plan/apply/deploy UAMIs, exact environment credentials, scoped RBAC, app RG, hardened tfstate |
+| **Agent context** | [`AGENTS.md`](../AGENTS.md), [`docs/`](.) and [`.github/`](../.github) | Canonical map, versioned knowledge, and client-specific primitives |
 | **APM layer** | [`apm.yml`](../apm.yml), `apm-policy.yml`, `apm.lock.yaml` | Supplementary deps from `github/awesome-copilot` |
+| **Harness** | [`tools/harness/`](../tools/harness) | Deterministic links, schemas, pins, catalog, ownership, plan, and ADR checks |
+| **Enterprise governance overlay** | [`examples/enterprise-governance/`](../examples/enterprise-governance) | Copy-ready `.github-private` managed settings, team mappings, enterprise plugins/agents, protection, rollout, and validation |
 | **CI/CD** | [`.github/workflows/`](../.github/workflows) | 10 workflows: lint+test+sec+infra+deploy + Copilot setup |
 | **Branch protection** | [`.github/rulesets/`](../.github/rulesets) | Evaluate-mode default, enforce-mode for graduated repos |
 
@@ -54,8 +69,11 @@ flowchart LR
 | Boundary | Crosses what | Hardening |
 |----------|--------------|-----------|
 | Developer ↔ GitHub | Code + workflow files | Branch protection rulesets, required reviews, CODEOWNERS |
-| GitHub ↔ Azure | Workflow → cloud API | OIDC federated credentials (no shared secrets); env-scoped subjects (`production`, `infra-apply`) |
-| Web App ↔ ACR | Image pull | Web App's system-assigned MI with `AcrPull` role on the registry; ACR admin user disabled |
+| Agent ↔ repository context | Prompts/tools → files | Canonical map, path scoping, lifecycle hooks, deterministic harness |
+| Agent ↔ MCP | Autonomous tool calls → external service | Built-in server awareness, explicit read-only allowlists, no checked-in secrets |
+| Enterprise policy ↔ Copilot clients | Selected `.github-private` source → CLI, VS Code, Copilot app, and key-dependent cloud agent behavior | Annotated canonical JSONC, generated strict JSON, protected review path, team specialization limits, and drift checks |
+| GitHub ↔ Azure | Workflow → cloud API | Separate UAMIs and immutable exact environment subjects (`infra-plan`, `infra-apply`, `production`) |
+| Web App/slot ↔ ACR | Image pull | Each slot has its own system-assigned MI and registry-scoped `AcrPull`; ACR admin user disabled |
 | App ↔ Application Insights | Telemetry | Connection string injected via Web App app settings (not in source) |
 | External ↔ Web App | HTTPS | TLS termination at App Service; no public ports on ACR or LAW |
 
@@ -67,13 +85,28 @@ flowchart LR
 2. Reviewer approves → squash merge to `main`.
 3. `azure-deploy.yml` triggers on push to `main` with `environment:
    production`. The job exchanges its OIDC token for an Azure access
-   token (federated credential subject:
-   `repo:<owner>/<repo>:environment:production`).
-4. `az acr login` → `docker build` → `docker push` (image tag = SHA).
-5. `az webapp config container set` updates the Web App to point at the
-   new image; App Service pulls via the Web App MI's `AcrPull` role.
-6. Telemetry flows from the Web App → Application Insights → Log
+   token using the production UAMI and exact immutable repository/environment
+   subject.
+4. `az acr login` → BuildKit build/push (SHA inventory tag + SBOM/provenance)
+   → validate the returned `sha256:` digest.
+   CI uses Trivy with `ignore-unfixed: true`: fixed HIGH/CRITICAL findings
+   block, while vulnerabilities without an upstream fix remain visible for
+   risk review instead of accumulating blanket CVE ignores.
+5. Default B1 flow: capture the exact `linuxFxVersion`, update production by
+   digest, restart, verify config, and probe `/health`. Failure restores the
+   exact prior image and verifies rollback health while keeping the job red.
+6. Optional S1+ flow: verify both slot identities, scoped `AcrPull`, and
+   equivalent secure settings; deploy/warm staging by digest; swap; and probe
+   production. Failure after promotion swaps again and verifies the prior
+   production image.
+7. Telemetry flows from the Web App → Application Insights → Log
    Analytics. Health probe at `GET /health` returns `{"status":"ok"}`.
+
+Enterprise Copilot policy is a separate control-plane flow. Administrators copy
+the overlay to a `.github-private` repository, render organization-specific
+strict JSON, protect it, and select it as the managed-settings source. This
+starter repository only supplies and validates that source; it cannot activate
+enterprise enforcement itself.
 
 ## What's intentionally **not** here in v1.0
 
@@ -81,9 +114,9 @@ flowchart LR
   baseline; documented as a future variant.
 - **Bicep / azd** — Terraform was chosen for the depth of the OIDC
   spike. Bicep stays a possible future variant.
-- **SBOM + provenance pinning** — solid v1.1 candidate (Syft, npm
-  provenance, image digest pinning). Tracked in
-  [`maintenance-matrix.md`](./maintenance-matrix.md).
+- **Artifact signing policy** — BuildKit emits SBOM and SLSA provenance
+  attestations, but the baseline intentionally adds no long-lived signing key.
+  Regulated adopters can add keyless Sigstore or approved key-backed signing.
 - **GHES considerations** — only flagged in
   [`enterprise-hardening.md`](./enterprise-hardening.md); the baseline
   targets dotcom.

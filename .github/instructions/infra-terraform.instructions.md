@@ -101,9 +101,14 @@ variable "environment" {
 - The Web App has a **system-assigned MI**. ACR pulls happen via that
   MI with the `AcrPull` role assigned **after** the Web App resource is
   created (use `depends_on` if needed).
-- The deploy UAMI created in `bootstrap/` gets `Contributor` and
-  `User Access Administrator` at the **resource group scope only** —
-  never at subscription scope.
+- `bootstrap/` creates separate plan, apply, and deploy UAMIs. Plan gets
+  `Reader` on the workload RG; apply gets `Contributor` plus conditioned
+  `Role Based Access Control Administrator`; deploy gets no broad bootstrap
+  role. State access is `Storage Blob Data Contributor` on the exact
+  container for plan/apply.
+- `infra/app` grants the deploy UAMI only `AcrPush` + `Reader` on the exact
+  ACR and `Website Contributor` on the exact parent Web App.
+- Never use `User Access Administrator` or subscription-scope workflow roles.
 
 ## Formatting and linting
 

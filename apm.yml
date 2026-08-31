@@ -42,7 +42,7 @@ dependencies:
   # specific commit (the suffix after `#`) so installs are reproducible.
   # Refresh via `scripts/refresh-apm.sh` (see docs/upstream-sources.md).
   #
-  # Verified at github/awesome-copilot @ ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  # Verified at github/awesome-copilot @ c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   # (2026-08-07 — "Merge pull request #2452 … add daily-focus-board skill"):
   # - 4 narrow instructions: container best practices, GitHub Actions CI/CD,
   #   Azure naming, and Terraform best practices.
@@ -50,11 +50,11 @@ dependencies:
   #   primitive alongside our hand-authored oidc-rotation skill).
   #
   apm:
-    - github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-    - github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-    - github/awesome-copilot/instructions/azure-naming.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-    - github/awesome-copilot/instructions/terraform.instructions.md#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-    - github/awesome-copilot/skills/review-and-refactor#ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+    - github/awesome-copilot/instructions/containerization-docker-best-practices.instructions.md#c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+    - github/awesome-copilot/instructions/github-actions-ci-cd-best-practices.instructions.md#c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+    - github/awesome-copilot/instructions/azure-naming.instructions.md#c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+    - github/awesome-copilot/instructions/terraform.instructions.md#c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+    - github/awesome-copilot/skills/review-and-refactor#c956566a35c3c2e635f019e7a1bfa59d9497e8b1
 
 # `auto` lets APM scan included paths automatically. Keep at default.
 includes: auto

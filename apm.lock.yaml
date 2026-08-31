@@ -1,16 +1,15 @@
 lockfile_version: '1'
-generated_at: '2026-08-09T22:42:00.539428+00:00'
+generated_at: '2026-08-31T08:38:13.045512+00:00'
 apm_version: 0.28.0
 dependencies:
 - repo_url: github/awesome-copilot
   name: awesome-copilot-azure-naming
   host: github.com
-  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_commit: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+  resolved_ref: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   version: 1.0.0
   virtual_path: instructions/azure-naming.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
   - .github/instructions/azure-naming.instructions.md
   deployed_file_hashes:
@@ -19,12 +18,11 @@ dependencies:
 - repo_url: github/awesome-copilot
   name: awesome-copilot-containerization-docker-best-practices
   host: github.com
-  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_commit: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+  resolved_ref: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   version: 1.0.0
   virtual_path: instructions/containerization-docker-best-practices.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
   - .github/instructions/containerization-docker-best-practices.instructions.md
   deployed_file_hashes:
@@ -33,12 +31,11 @@ dependencies:
 - repo_url: github/awesome-copilot
   name: awesome-copilot-github-actions-ci-cd-best-practices
   host: github.com
-  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_commit: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+  resolved_ref: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   version: 1.0.0
   virtual_path: instructions/github-actions-ci-cd-best-practices.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
   - .github/instructions/github-actions-ci-cd-best-practices.instructions.md
   deployed_file_hashes:
@@ -47,12 +44,11 @@ dependencies:
 - repo_url: github/awesome-copilot
   name: awesome-copilot-terraform
   host: github.com
-  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_commit: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+  resolved_ref: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   version: 1.0.0
   virtual_path: instructions/terraform.instructions.md
   is_virtual: true
-  package_type: apm_package
   deployed_files:
   - .github/instructions/terraform.instructions.md
   deployed_file_hashes:
@@ -61,8 +57,8 @@ dependencies:
 - repo_url: github/awesome-copilot
   name: review-and-refactor
   host: github.com
-  resolved_commit: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
-  resolved_ref: ab7544d03d4c49fdd07f5958e1888ad39c4118e2
+  resolved_commit: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
+  resolved_ref: c956566a35c3c2e635f019e7a1bfa59d9497e8b1
   version: unknown
   virtual_path: skills/review-and-refactor
   is_virtual: true
